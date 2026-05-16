@@ -13,11 +13,23 @@ Implements task input dialog with:
 - Modern UI design
 """
 
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
-                              QLineEdit, QPushButton, QLabel, QTextEdit)
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
+                              QLineEdit, QPushButton, QLabel, QTextEdit, QComboBox)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
 from PyQt6.QtGui import QIcon, QFont
 import threading
+import sys
+import os
+
+# Import LLM functions for model switching
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+try:
+    from core.llm import switch_model, get_current_model, get_model_display_name
+except ImportError:
+    # Fallback if import fails
+    def switch_model(model_name): return True
+    def get_current_model(): return "flash"
+    def get_model_display_name(): return "Gemini 2.0 Flash"
 
 
 class VoiceRecorder(QThread):
@@ -148,6 +160,60 @@ class TaskInputDialog(QDialog):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         inner_layout.addWidget(title_label)
         
+        # Add model selection dropdown
+        model_layout = QHBoxLayout()
+        model_label = QLabel("Model:")
+        model_label.setFont(QFont("Segoe UI", 10))
+        model_label.setStyleSheet("color: rgba(200, 200, 200, 255); background: transparent; border: none;")
+        model_layout.addWidget(model_label)
+        
+        self.model_selector = QComboBox()
+        self.model_selector.addItem("Gemini 2.0 Flash (Faster)", "flash")
+        self.model_selector.addItem("Gemini 1.5 Pro (Smarter)", "pro")
+        self.model_selector.setFont(QFont("Segoe UI", 10))
+        self.model_selector.setStyleSheet("""
+            QComboBox {
+                background-color: rgba(50, 50, 50, 200);
+                color: white;
+                border: 1px solid rgba(100, 200, 255, 100);
+                border-radius: 5px;
+                padding: 5px 10px;
+                min-width: 200px;
+            }
+            QComboBox:hover {
+                border: 2px solid rgba(100, 200, 255, 150);
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid white;
+                margin-right: 5px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: rgba(40, 40, 40, 240);
+                color: white;
+                selection-background-color: rgba(100, 200, 255, 150);
+                border: 1px solid rgba(100, 200, 255, 100);
+            }
+        """)
+        
+        # Set current model
+        current_model = get_current_model()
+        index = 0 if current_model == "flash" else 1
+        self.model_selector.setCurrentIndex(index)
+        
+        # Connect model change signal
+        self.model_selector.currentIndexChanged.connect(self.on_model_changed)
+        
+        model_layout.addWidget(self.model_selector)
+        model_layout.addStretch()
+        inner_layout.addLayout(model_layout)
+        
         # Add text input field
         self.task_input = QLineEdit()
         self.task_input.setPlaceholderText("Enter your task here...")
@@ -171,7 +237,7 @@ class TaskInputDialog(QDialog):
         button_layout = QHBoxLayout()
         
         # Add voice toggle button
-        self.voice_button = QPushButton("🎤 Voice")
+        self.voice_button = QPushButton("Voice")
         self.voice_button.setFont(QFont("Segoe UI", 10))
         self.voice_button.setStyleSheet("""
             QPushButton {
@@ -192,7 +258,7 @@ class TaskInputDialog(QDialog):
         button_layout.addWidget(self.voice_button)
         
         # Add submit button
-        submit_button = QPushButton("▶ Start")
+        submit_button = QPushButton("Start")
         submit_button.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         submit_button.setStyleSheet("""
             QPushButton {
@@ -213,7 +279,7 @@ class TaskInputDialog(QDialog):
         button_layout.addWidget(submit_button)
         
         # Add cancel button
-        cancel_button = QPushButton("✕ Cancel")
+        cancel_button = QPushButton("Cancel")
         cancel_button.setFont(QFont("Segoe UI", 10))
         cancel_button.setStyleSheet("""
             QPushButton {
@@ -236,7 +302,7 @@ class TaskInputDialog(QDialog):
         inner_layout.addLayout(button_layout)
         
         # Add recording indicator (hidden by default)
-        self.recording_label = QLabel("🔴 Recording...")
+        self.recording_label = QLabel("Recording...")
         self.recording_label.setFont(QFont("Segoe UI", 10))
         self.recording_label.setStyleSheet("color: rgba(255, 100, 100, 255); background: transparent; border: none;")
         self.recording_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -263,7 +329,7 @@ class TaskInputDialog(QDialog):
         if not self.is_recording:
             # Start recording
             self.is_recording = True
-            self.voice_button.setText("⏹ Stop")
+            self.voice_button.setText("Stop")
             self.voice_button.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(255, 100, 100, 150);
@@ -285,7 +351,7 @@ class TaskInputDialog(QDialog):
         else:
             # Stop recording
             self.is_recording = False
-            self.voice_button.setText("🎤 Voice")
+            self.voice_button.setText("Voice")
             self.voice_button.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(100, 200, 255, 150);
@@ -316,6 +382,22 @@ class TaskInputDialog(QDialog):
             self.task_input.setText(current_text + " " + text)
         else:
             self.task_input.setText(text)
+    
+    def on_model_changed(self, index):
+        """Handle model selection change.
+        
+        Args:
+            index (int): Selected index in combo box
+        """
+        # Get selected model key
+        model_key = self.model_selector.itemData(index)
+        
+        # Switch to selected model
+        if switch_model(model_key):
+            # Update UI to show current model
+            model_name = get_model_display_name()
+            # Could add a status message here if needed
+            pass
     
     def submit_task(self):
         """Submit the task and close dialog."""
@@ -395,7 +477,7 @@ def create_voice_button():
         QPushButton: Configured voice button
     """
     # Create button with microphone icon
-    button = QPushButton("🎤")
+    button = QPushButton("Mic")
     button.setFont(QFont("Segoe UI", 12))
     
     # Style with CSS

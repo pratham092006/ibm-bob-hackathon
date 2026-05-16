@@ -28,7 +28,7 @@ def main():
     kill_switch = start_kill_switch()
     
     if kill_switch is None:
-        print("❌ Failed to start kill switch!")
+        print("[ERROR] Failed to start kill switch!")
         return 1
     
     print("\n[2] Kill switch is now active")
@@ -47,14 +47,14 @@ def main():
             status = status_queue.get()
             print(f"[4] Status queue message: {status}")
         
-        print("\n✅ Kill switch test PASSED!")
+        print("\n[SUCCESS] Kill switch test PASSED!")
         print("    - Listener started successfully")
         print("    - F12 key detected")
         print("    - Kill event set correctly")
         print("    - Status queue updated")
         
     except KeyboardInterrupt:
-        print("\n\n⚠️ Test interrupted by user (Ctrl+C)")
+        print("\n\n[WARNING] Test interrupted by user (Ctrl+C)")
     
     finally:
         # Clean up

@@ -12,7 +12,12 @@ import json
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from axon.config import kill_event, status_queue
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import kill_event, status_queue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,69 +28,153 @@ logger = logging.getLogger(__name__)
 pyautogui.FAILSAFE = True  # Move mouse to corner to abort
 pyautogui.PAUSE = 0.1  # Small delay between actions
 
-# Action history for stuck-loop detection (tracks last 3 actions)
-action_history = deque(maxlen=3)
+
+def _get_coordinates(action_dict):
+    """Extract coordinates from action dict, supporting both formats.
+    
+    Supports:
+    - {"coordinate": [x, y]}  (primary format from executor spec)
+    - {"x": 100, "y": 200}    (legacy format from some LLM responses)
+    
+    Args:
+        action_dict (dict): Action dictionary
+        
+    Returns:
+        list: [x, y] coordinates or empty list if not found
+    """
+    # Try 'coordinate' array first (primary format)
+    coord = action_dict.get('coordinate', [])
+    if isinstance(coord, (list, tuple)) and len(coord) == 2:
+        return [int(coord[0]), int(coord[1])]
+    
+    # Fallback: try 'x' and 'y' keys
+    x = action_dict.get('x')
+    y = action_dict.get('y')
+    if x is not None and y is not None:
+        return [int(x), int(y)]
+    
+    return []
+
+# Action history for stuck-loop detection (tracks last 10 actions)
+action_history = deque(maxlen=10)
+last_progress_time = time.time()
+MAX_NO_PROGRESS_TIME = 15  # seconds
+
+
+def _all_in_same_region(coords, radius=100):
+    """Check if all coordinates are within radius of each other.
+    
+    Args:
+        coords (list): List of [x, y] coordinate pairs
+        radius (int): Maximum distance in pixels (default 100)
+        
+    Returns:
+        bool: True if all coordinates are within radius of first coordinate
+    """
+    if len(coords) < 2:
+        return False
+    first = coords[0]
+    if not first or len(first) != 2:
+        return False
+    for coord in coords[1:]:
+        if not coord or len(coord) != 2:
+            continue
+        distance = ((coord[0] - first[0])**2 + (coord[1] - first[1])**2)**0.5
+        if distance > radius:
+            return False
+    return True
 
 
 def _is_stuck_loop(history):
-    """Check if the last 3 actions are identical (stuck loop detection).
+    """Check if actions indicate a stuck loop (enhanced detection).
     
-    Two actions are considered the same if:
-    - Same action type (e.g., both "left_click")
-    - Same coordinates (within 5 pixels tolerance for clicks/moves)
-    - Same text (for type/key actions)
+    Detects three types of loops:
+    1. Exact repetition: Same action repeated 3+ times
+    2. Semantic loop: Last 5 actions in same 100px region without progress
+    3. Timeout: No progress for 15+ seconds
     
     Args:
-        history (deque): Deque containing last 3 action dictionaries
+        history (deque): Deque containing last 10 action dictionaries
         
     Returns:
         bool: True if stuck loop detected, False otherwise
     """
+    global last_progress_time
+    
     if len(history) < 3:
         return False
     
     # Convert deque to list for easier comparison
     actions = list(history)
     
-    # Check if all three actions have the same type
-    action_types = [a.get('action') for a in actions]
-    if len(set(action_types)) != 1:
-        return False
-    
-    action_type = action_types[0]
-    
-    # For coordinate-based actions (clicks, moves, scroll)
-    if action_type in ['left_click', 'right_click', 'middle_click', 'double_click', 'mouse_move', 'scroll']:
-        coords = [a.get('coordinate', []) for a in actions]
-        
-        # Check if all have valid coordinates
-        if not all(len(c) == 2 for c in coords):
-            return False
-        
-        # Check if coordinates are within 5 pixels of each other
-        for i in range(1, 3):
-            x_diff = abs(coords[i][0] - coords[0][0])
-            y_diff = abs(coords[i][1] - coords[0][1])
-            if x_diff > 5 or y_diff > 5:
-                return False
-        
-        # For scroll, also check direction and amount
-        if action_type == 'scroll':
-            directions = [a.get('direction') for a in actions]
-            amounts = [a.get('amount') for a in actions]
-            if len(set(directions)) != 1 or len(set(amounts)) != 1:
-                return False
-        
+    # Check 1: Timeout detection (15 seconds without progress)
+    current_time = time.time()
+    if current_time - last_progress_time > MAX_NO_PROGRESS_TIME:
+        logger.warning(f"Timeout detected: No progress for {MAX_NO_PROGRESS_TIME} seconds")
         return True
     
-    # For text-based actions (type, key)
-    elif action_type in ['type', 'key']:
-        texts = [a.get('text', '') for a in actions]
-        # All texts must be identical
-        return len(set(texts)) == 1 and texts[0] != ''
+    # Check 2: Exact repetition (last 3 actions identical)
+    if len(history) >= 3:
+        last_three = actions[-3:]
+        action_types = [a.get('action') for a in last_three]
+        
+        # All three must be same type
+        if len(set(action_types)) == 1:
+            action_type = action_types[0]
+            
+            # For coordinate-based actions
+            if action_type in ['left_click', 'right_click', 'middle_click', 'double_click', 'mouse_move', 'scroll']:
+                coords = [a.get('coordinate', []) for a in last_three]
+                
+                # Check if all have valid coordinates
+                if all(len(c) == 2 for c in coords):
+                    # Check if coordinates are within 5 pixels of each other
+                    all_close = True
+                    for i in range(1, 3):
+                        x_diff = abs(coords[i][0] - coords[0][0])
+                        y_diff = abs(coords[i][1] - coords[0][1])
+                        if x_diff > 5 or y_diff > 5:
+                            all_close = False
+                            break
+                    
+                    if all_close:
+                        # For scroll, also check direction and amount
+                        if action_type == 'scroll':
+                            directions = [a.get('direction') for a in last_three]
+                            amounts = [a.get('amount') for a in last_three]
+                            if len(set(directions)) == 1 and len(set(amounts)) == 1:
+                                logger.warning("Exact repetition detected: Same scroll action 3 times")
+                                return True
+                        else:
+                            logger.warning(f"Exact repetition detected: Same {action_type} 3 times")
+                            return True
+            
+            # For text-based actions
+            elif action_type in ['type', 'key']:
+                texts = [a.get('text', '') for a in last_three]
+                if len(set(texts)) == 1 and texts[0] != '':
+                    logger.warning(f"Exact repetition detected: Same {action_type} 3 times")
+                    return True
     
-    # For other actions (like 'done'), check if all are the same type
-    return True
+    # Check 3: Semantic loop (last 5 actions in same region)
+    if len(history) >= 5:
+        last_five = actions[-5:]
+        
+        # Extract coordinates from coordinate-based actions
+        coords = []
+        for action in last_five:
+            action_type = action.get('action')
+            if action_type in ['left_click', 'right_click', 'middle_click', 'double_click', 'mouse_move', 'scroll']:
+                coord = action.get('coordinate', [])
+                if len(coord) == 2:
+                    coords.append(coord)
+        
+        # If we have at least 4 coordinate-based actions in same region
+        if len(coords) >= 4 and _all_in_same_region(coords, radius=100):
+            logger.warning("Semantic loop detected: 5 actions in same 100px region")
+            return True
+    
+    return False
 
 
 def log_action_to_file(action_dict, success, execution_time=None):
@@ -137,6 +226,44 @@ def log_action_to_file(action_dict, success, execution_time=None):
         logger.error(f"Error logging action to file: {e}")
 
 
+def _open_app_via_search(app_name):
+    """Open application using Windows Search (atomic operation).
+    
+    This executes the entire sequence atomically:
+    1. Press Windows key
+    2. Type app name
+    3. Press Enter
+    4. Wait for app to launch
+    
+    Args:
+        app_name (str): Name of the application to open
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger.info(f"Opening app via Windows Search: {app_name}")
+        
+        # Press Windows key
+        pyautogui.press('win')
+        time.sleep(0.3)  # Wait for Start menu
+        
+        # Type app name
+        pyautogui.write(app_name, interval=0.05)
+        time.sleep(0.5)  # Wait for search results
+        
+        # Press Enter
+        pyautogui.press('enter')
+        time.sleep(1.0)  # Wait for app to launch
+        
+        logger.info(f"Successfully opened {app_name}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error opening app {app_name}: {e}")
+        return False
+
+
 def execute_action(action_dict):
     """Execute an action based on Computer Use API response.
     
@@ -155,6 +282,7 @@ def execute_action(action_dict):
             {"action": "scroll", "coordinate": [340, 400], "direction": "down", "amount": 3}
             {"action": "key", "text": "ctrl+s"}
             {"action": "mouse_move", "coordinate": [200, 150]}
+            {"action": "open_app", "text": "chrome"}
             {"action": "done"}
     
     Returns:
@@ -174,10 +302,10 @@ def execute_action(action_dict):
         # Add action to history for stuck-loop detection
         action_history.append(action_dict)
         
-        # Check for stuck loop (same action 3 times in a row)
-        if len(action_history) == 3 and _is_stuck_loop(action_history):
-            logger.warning("🔴 STUCK LOOP DETECTED! Same action repeated 3 times in a row")
-            logger.warning(f"Repeated action: {action_type}")
+        # Check for stuck loop (enhanced detection)
+        if _is_stuck_loop(action_history):
+            logger.warning("🔴 STUCK LOOP DETECTED!")
+            logger.warning(f"Current action: {action_type}")
             
             # Set kill_event to pause execution
             kill_event.set()
@@ -199,16 +327,26 @@ def execute_action(action_dict):
         logger.info(f"Executing action: {action_type}")
         
         # Route to appropriate action handler
-        if action_type == "mouse_move":
-            coordinate = action_dict.get('coordinate', [])
+        # NEW: Handle open_app as atomic operation
+        if action_type == "open_app":
+            app_name = action_dict.get('text', '')
+            if not app_name:
+                logger.error("No app name specified for open_app action")
+                success = False
+            else:
+                success = _open_app_via_search(app_name)
+        
+        elif action_type == "mouse_move":
+            coordinate = _get_coordinates(action_dict)
             if len(coordinate) != 2:
                 logger.error(f"Invalid coordinate for mouse_move: {coordinate}")
                 success = False
             else:
                 success = mouse_move(coordinate[0], coordinate[1])
         
-        elif action_type == "left_click":
-            coordinate = action_dict.get('coordinate', [])
+        elif action_type == "click" or action_type == "left_click":
+            # Support both "click" and "left_click" for compatibility
+            coordinate = _get_coordinates(action_dict)
             if len(coordinate) != 2:
                 logger.error(f"Invalid coordinate for left_click: {coordinate}")
                 success = False
@@ -216,7 +354,7 @@ def execute_action(action_dict):
                 success = click(coordinate[0], coordinate[1], button='left')
         
         elif action_type == "right_click":
-            coordinate = action_dict.get('coordinate', [])
+            coordinate = _get_coordinates(action_dict)
             if len(coordinate) != 2:
                 logger.error(f"Invalid coordinate for right_click: {coordinate}")
                 success = False
@@ -224,7 +362,7 @@ def execute_action(action_dict):
                 success = click(coordinate[0], coordinate[1], button='right')
         
         elif action_type == "middle_click":
-            coordinate = action_dict.get('coordinate', [])
+            coordinate = _get_coordinates(action_dict)
             if len(coordinate) != 2:
                 logger.error(f"Invalid coordinate for middle_click: {coordinate}")
                 success = False
@@ -232,7 +370,7 @@ def execute_action(action_dict):
                 success = click(coordinate[0], coordinate[1], button='middle')
         
         elif action_type == "double_click":
-            coordinate = action_dict.get('coordinate', [])
+            coordinate = _get_coordinates(action_dict)
             if len(coordinate) != 2:
                 logger.error(f"Invalid coordinate for double_click: {coordinate}")
                 success = False
@@ -256,7 +394,7 @@ def execute_action(action_dict):
                 success = press_key(key_combination)
         
         elif action_type == "scroll":
-            coordinate = action_dict.get('coordinate', [])
+            coordinate = _get_coordinates(action_dict)
             direction = action_dict.get('direction', 'down')
             amount = action_dict.get('amount', 3)
             
@@ -278,6 +416,11 @@ def execute_action(action_dict):
         # Calculate execution time and log the action
         execution_time = (time.time() - start_time) * 1000  # Convert to milliseconds
         log_action_to_file(action_dict, success, execution_time)
+        
+        # Reset progress timer on successful actions
+        if success:
+            global last_progress_time
+            last_progress_time = time.time()
         
         return success
     

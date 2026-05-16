@@ -29,7 +29,7 @@ class KillSwitch:
         self.listener = None
         self.current_keys = set()
         self.is_running = False
-        print("🔒 Kill switch initialized (Press F12 to stop)")
+        print("[KILL SWITCH] Initialized (Press F12 to stop)")
         
     def start(self):
         """Start the kill switch listener in a separate thread.
@@ -38,7 +38,7 @@ class KillSwitch:
             bool: True if started successfully
         """
         if self.is_running:
-            print("⚠️ Kill switch is already running")
+            print("[WARNING] Kill switch is already running")
             return False
         
         try:
@@ -53,11 +53,11 @@ class KillSwitch:
             self.listener.start()
             
             self.is_running = True
-            print("✅ Kill switch active - Press F12 to emergency stop")
+            print("[SUCCESS] Kill switch active - Press F12 to emergency stop")
             return True
             
         except Exception as e:
-            print(f"❌ Failed to start kill switch: {e}")
+            print(f"[ERROR] Failed to start kill switch: {e}")
             return False
     
     def stop(self):
@@ -72,10 +72,10 @@ class KillSwitch:
             
             self.is_running = False
             self.current_keys.clear()
-            print("🔓 Kill switch deactivated")
+            print("[KILL SWITCH] Deactivated")
             
         except Exception as e:
-            print(f"⚠️ Error stopping kill switch: {e}")
+            print(f"[WARNING] Error stopping kill switch: {e}")
     
     def on_press(self, key):
         """Handle key press events.
@@ -89,11 +89,11 @@ class KillSwitch:
             
             # Check if kill hotkey (F12) is pressed
             if key in KILL_HOTKEY:
-                print(f"🔴 Kill hotkey detected: {key}")
+                print(f"[KILL SWITCH] Kill hotkey detected: {key}")
                 self.trigger()
                 
         except Exception as e:
-            print(f"⚠️ Error in on_press: {e}")
+            print(f"[WARNING] Error in on_press: {e}")
     
     def on_release(self, key):
         """Handle key release events.
@@ -106,12 +106,12 @@ class KillSwitch:
             self.current_keys.discard(key)
             
         except Exception as e:
-            print(f"⚠️ Error in on_release: {e}")
+            print(f"[WARNING] Error in on_release: {e}")
     
     def trigger(self):
         """Trigger the kill switch to stop the agent."""
         print("\n" + "="*60)
-        print("🛑 KILL SWITCH ACTIVATED - EMERGENCY STOP!")
+        print("*** KILL SWITCH ACTIVATED - EMERGENCY STOP! ***")
         print("="*60 + "\n")
         
         # Set the kill event to signal all threads to stop
@@ -124,9 +124,9 @@ class KillSwitch:
                 "message": "Emergency stop activated by kill switch"
             })
         except Exception as e:
-            print(f"⚠️ Error updating status queue: {e}")
+            print(f"[WARNING] Error updating status queue: {e}")
         
-        print("✅ Kill event set - Agent will stop gracefully")
+        print("[SUCCESS] Kill event set - Agent will stop gracefully")
 
 
 def start_kill_switch():
@@ -143,11 +143,11 @@ def start_kill_switch():
         if kill_switch.start():
             return kill_switch
         else:
-            print("❌ Failed to start kill switch")
+            print("[ERROR] Failed to start kill switch")
             return None
             
     except Exception as e:
-        print(f"❌ Error initializing kill switch: {e}")
+        print(f"[ERROR] Error initializing kill switch: {e}")
         return None
 
 
@@ -163,6 +163,6 @@ def stop_kill_switch(kill_switch):
     try:
         kill_switch.stop()
     except Exception as e:
-        print(f"⚠️ Error during kill switch cleanup: {e}")
+        print(f"[WARNING] Error during kill switch cleanup: {e}")
 
 # Made with Bob

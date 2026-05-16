@@ -22,14 +22,28 @@ def capture_screen():
     Returns:
         bytes: JPEG-compressed screen capture
     """
-    # TODO: Implement screen capture
-    # 1. Use mss.mss() to create screen capture object
-    # 2. Grab the primary monitor
-    # 3. Convert to PIL Image
-    # 4. Resize to configured dimensions
-    # 5. Compress to JPEG with configured quality
-    # 6. Return bytes
-    pass
+    try:
+        # Create screen capture object
+        with mss.mss() as sct:
+            # Grab the primary monitor (monitor 1)
+            monitor = sct.monitors[1]
+            screenshot = sct.grab(monitor)
+            
+            # Convert to PIL Image
+            img = Image.frombytes('RGB', screenshot.size, screenshot.rgb)
+            
+            # Resize to configured dimensions
+            img = img.resize((FRAME_WIDTH, FRAME_HEIGHT), Image.Resampling.LANCZOS)
+            
+            # Compress to JPEG
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=JPEG_QUALITY)
+            
+            # Return bytes
+            return buffer.getvalue()
+    except Exception as e:
+        print(f"Error capturing screen: {e}")
+        return None
 
 
 def get_screen_dimensions():
@@ -38,7 +52,12 @@ def get_screen_dimensions():
     Returns:
         tuple: (width, height) of primary monitor
     """
-    # TODO: Implement screen dimension detection
-    pass
+    try:
+        with mss.mss() as sct:
+            monitor = sct.monitors[1]  # Primary monitor
+            return (monitor['width'], monitor['height'])
+    except Exception as e:
+        print(f"Error getting screen dimensions: {e}")
+        return (1920, 1080)  # Default fallback
 
 # Made with Bob

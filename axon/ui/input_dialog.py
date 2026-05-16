@@ -501,7 +501,7 @@ class TaskInputDialog(QDialog):
         try:
             logger.info("Starting voice recording")
             self.is_recording = True
-            self.voice_button.setText("⏹ Stop")
+            self.voice_button.setText("🛑 Stop")
             self.voice_button.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(255, 100, 100, 150);

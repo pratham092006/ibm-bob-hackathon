@@ -1,27 +1,44 @@
-"""LLM integration using Google Gemini API with EasyOCR for grounded vision.
+"""LLM integration supporting both Claude and Gemini with EasyOCR for grounded vision.
 
 Complete rewrite with new architecture:
-- Uses new Google GenAI SDK (google.genai)
+- Supports both Anthropic Claude and Google Gemini
 - EasyOCR for text anchor extraction (grounded vision)
-- Gemini 2.5 Flash with structured outputs
-- Robust error handling and type hints
+- Structured outputs with robust error handling
+- Easy model switching via environment variables
 """
 
 import json
 import os
 import tempfile
 import time
+import re
 from typing import Dict, Any, List, Optional, Union
 from PIL import Image
 import io
+import base64
 import easyocr
-from google import genai
-from google.genai import types
+import requests
+from openai import OpenAI
 
 # Import configuration
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import GEMINI_API_KEY, FRAME_WIDTH, FRAME_HEIGHT, USE_GPU, OCR_CACHE_DURATION
+from config import (
+    LLM_PROVIDER,
+    GEMINI_API_KEY,
+    CLAUDE_API_KEY,
+    CLAUDE_MODEL,
+    OPENROUTER_API_KEY,
+    OPENROUTER_MODEL,
+    NVIDIA_API_KEY,
+    NVIDIA_MODEL,
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
+    FRAME_WIDTH,
+    FRAME_HEIGHT,
+    USE_GPU,
+    OCR_CACHE_DURATION
+)
 
 # Initialize EasyOCR reader globally (expensive operation, do once)
 print("[LLM] Initializing EasyOCR reader...")
@@ -46,10 +63,50 @@ def _get_easyocr_reader() -> easyocr.Reader:
     return _easyocr_reader
 
 
-# Initialize Google GenAI client
-print("[LLM] Initializing Google GenAI client...")
-_genai_client = genai.Client(api_key=GEMINI_API_KEY)
-print("[LLM] Google GenAI client initialized")
+# Initialize LLM clients based on provider
+_genai_client = None
+_claude_client = None
+_openrouter_client = None
+_nvidia_client = None
+
+if LLM_PROVIDER == "gemini":
+    from google import genai
+    from google.genai import types
+    print("[LLM] Initializing Google GenAI client...")
+    _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+    print("[LLM] Google GenAI client initialized")
+elif LLM_PROVIDER == "claude":
+    try:
+        import anthropic
+        print("[LLM] Initializing Anthropic Claude client...")
+        _claude_client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+        print(f"[LLM] Claude client initialized (model: {CLAUDE_MODEL})")
+    except ImportError:
+        print("[LLM] ERROR: anthropic package not installed. Run: pip install anthropic")
+        raise
+elif LLM_PROVIDER == "openrouter":
+    try:
+        from openai import OpenAI
+        print("[LLM] Initializing OpenRouter client...")
+        _openrouter_client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_API_KEY
+        )
+        print(f"[LLM] OpenRouter client initialized (model: {OPENROUTER_MODEL})")
+    except ImportError:
+        print("[LLM] ERROR: openai package not installed. Run: pip install openai")
+        raise
+elif LLM_PROVIDER == "nvidia":
+    try:
+        print("[LLM] Initializing NVIDIA API client with OpenAI SDK...")
+        _nvidia_client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=NVIDIA_API_KEY
+        )
+        print(f"[LLM] NVIDIA client initialized (model: {NVIDIA_MODEL})")
+    except ImportError:
+        print("[LLM] ERROR: openai package not installed. Run: pip install openai")
+        raise
 
 
 def get_screen_elements(image_path: str, native_width: int = None, native_height: int = None, confidence_threshold: float = 0.4) -> List[Dict[str, Any]]:
@@ -175,6 +232,38 @@ def _get_system_instruction(text_anchors: List[Dict[str, Any]]) -> str:
     
     return f"""You are an AI agent controlling a Windows desktop to accomplish user tasks.
 
+**CRITICAL: Multi-Step Task Execution**
+For complex tasks like "Open Discord and message Pratham good morning", break it into sequential steps:
+1. First, open the application (if not already open)
+2. Wait for it to load (check if UI elements are visible)
+3. Find the target (search for user, locate input field)
+4. Click on the correct element (chat, text box, button)
+5. Type the message
+6. Send the message (press Enter or click Send)
+
+**IMPORTANT: Check Application State**
+- Before opening an app, check if it's ALREADY OPEN by looking for its UI elements
+- If you see Discord UI elements (channels, messages, search bar), DON'T open Discord again
+- If you see Chrome tabs/address bar, DON'T open Chrome again
+- Move to the next step of the task instead
+
+**CRITICAL: Finding Text Input Fields**
+When you need to type a message:
+1. Look for text anchors like "Type a message", "Message", "Search", or input field indicators
+2. Click DIRECTLY on the text input field (usually has a text cursor or placeholder text)
+3. Wait for the field to be focused (cursor should be blinking)
+4. Then type your message
+5. Common input field locations:
+   - Discord: Bottom of chat window, look for "Message @username" or "Type a message"
+   - Chrome: Address bar at top, search boxes
+   - Text editors: Main text area
+
+**NEVER:**
+- Click random areas hoping to find the input field
+- Type without first clicking on the input field
+- Click on messages or chat history when you need to type
+- Click on user avatars or names when you need the text input
+
 **CRITICAL: How to Use Text Anchors**
 Text anchors are the MOST RELIABLE way to interact with UI elements. ALWAYS prefer them over visual estimation.
 
@@ -189,9 +278,7 @@ Text anchors are the MOST RELIABLE way to interact with UI elements. ALWAYS pref
 
 - Task: "Open Notepad"
   - If NO text anchor found for "Notepad":
-  - Step 1: {{"action": "key", "text": "win", "reasoning": "Opening Windows Search to find Notepad", "confidence": 0.9}}
-  - Step 2: {{"action": "type", "text": "notepad", "reasoning": "Typing app name in search", "confidence": 0.95}}
-  - Step 3: {{"action": "key", "text": "enter", "reasoning": "Launching Notepad from search results", "confidence": 0.95}}
+  - Step 1: {{"action": "open_app", "text": "notepad", "reasoning": "Opening Notepad via Windows Search", "confidence": 0.95}}
 
 **Strategy for Opening Applications:**
 1. ALWAYS use open_app action for opening applications: {{"action": "open_app", "text": "chrome"}}
@@ -201,14 +288,16 @@ Text anchors are the MOST RELIABLE way to interact with UI elements. ALWAYS pref
 3. DO NOT break this into separate actions - open_app handles everything atomically
 4. Examples:
    - Open Chrome: {{"action": "open_app", "text": "chrome"}}
+   - Open Discord: {{"action": "open_app", "text": "discord"}}
    - Open Notepad: {{"action": "open_app", "text": "notepad"}}
    - Open Calculator: {{"action": "open_app", "text": "calculator"}}
 
 **NEVER:**
+- Open an app that's already open (check the screen first!)
 - Click random coordinates without a text anchor
 - Click IDE elements when task is about opening applications
 - Guess coordinates based on visual appearance alone
-- Repeat the same failed action more than twice
+- Repeat the same action more than twice without progress
 
 **Screen Dimensions:** {screen_w}x{screen_h} (native resolution)
 **Available Text Anchors:** (see below)
@@ -261,11 +350,11 @@ def call_llm(
     task_description: str,
     conversation_history: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
-    """Call Gemini 2.5 Flash to determine next action with structured outputs.
+    """Call LLM (Claude, Gemini, OpenRouter, or NVIDIA) to determine next action with structured outputs.
     
     This is the main function that:
     1. Extracts text anchors using EasyOCR
-    2. Sends screenshot + context to Gemini
+    2. Sends screenshot + context to LLM
     3. Gets structured JSON response
     4. Returns action for executor
     
@@ -287,36 +376,51 @@ def call_llm(
         On error, returns safe fallback:
         {"action": "mouse_move", "coordinate": [0, 0]}
     """
+    if LLM_PROVIDER == "claude":
+        return _call_claude(screen_image, task_description, conversation_history)
+    elif LLM_PROVIDER == "openrouter":
+        return _call_openrouter(screen_image, task_description, conversation_history)
+    elif LLM_PROVIDER == "nvidia":
+        return _call_nvidia(screen_image, task_description, conversation_history)
+    elif LLM_PROVIDER == "ollama":
+        return _call_ollama(screen_image, task_description, conversation_history)
+    else:
+        return _call_gemini(screen_image, task_description, conversation_history)
+
+
+def _call_claude(
+    screen_image: Union[bytes, str],
+    task_description: str,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Call Claude API to determine next action."""
     temp_file = None
     try:
         # Handle both bytes and file path inputs
         if isinstance(screen_image, bytes):
-            # Save bytes to temporary file for EasyOCR
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
             temp_file.write(screen_image)
             temp_file.close()
             frame_path = temp_file.name
             image_bytes = screen_image
         else:
-            # It's a file path
             frame_path = screen_image
             with open(frame_path, 'rb') as f:
                 image_bytes = f.read()
         
-        # Step 1: Extract text anchors from screen
+        # Extract text anchors
         print(f"[LLM] Extracting text anchors from screen...")
         text_anchors = get_screen_elements(frame_path)
         
-        # Step 2: Build system instruction with text anchors
+        # Build system instruction
         system_instruction = _get_system_instruction(text_anchors)
         
-        # Step 3: Build user prompt with context
+        # Build user prompt
         user_prompt = f"**Goal:** {task_description}\n\n"
         
-        # Add conversation history with outcome tracking to prevent infinite loops
         if conversation_history and len(conversation_history) > 0:
             user_prompt += "**Previous Actions:**\n"
-            for i, action in enumerate(conversation_history[-5:], 1):  # Last 5 actions
+            for i, action in enumerate(conversation_history[-5:], 1):
                 action_type = action.get('action', 'unknown')
                 outcome = action.get('outcome', 'unknown')
                 coord = action.get('coordinate', [])
@@ -336,13 +440,689 @@ def call_llm(
         
         user_prompt += "Analyze the screenshot and decide the next action. Respond with ONLY valid JSON."
         
-        # Step 4: Create image part for Gemini
+        # Encode image to base64 for Claude
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Call Claude API
+        print(f"[LLM] Calling Claude ({CLAUDE_MODEL})...")
+        
+        message = _claude_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1024,
+            temperature=0.1,
+            system=system_instruction,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": user_prompt
+                        }
+                    ]
+                }
+            ]
+        )
+        
+        # Parse response
+        response_text = message.content[0].text.strip()
+        print(f"[LLM] Raw response: {response_text[:200]}")
+        
+        # Extract JSON from response (Claude might wrap it in markdown)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        
+        action_dict = json.loads(response_text)
+        
+        if "action" not in action_dict:
+            print("[LLM] ERROR: Response missing 'action' field")
+            return {"action": "mouse_move", "coordinate": [0, 0]}
+        
+        action_dict = normalize_and_scale_action(action_dict)
+        
+        print(f"[LLM] Action: {action_dict.get('action')}")
+        if "coordinate" in action_dict:
+            print(f"[LLM] Coordinate: {action_dict['coordinate']}")
+        
+        return action_dict
+        
+    except json.JSONDecodeError as e:
+        print(f"[LLM] ERROR: Failed to parse JSON response: {e}")
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    except Exception as e:
+        print(f"[LLM] ERROR in _call_claude: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    finally:
+        if temp_file and os.path.exists(temp_file.name):
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+
+
+def _call_openrouter(
+    screen_image: Union[bytes, str],
+    task_description: str,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Call OpenRouter API to determine next action using OpenAI-compatible interface."""
+    temp_file = None
+    try:
+        # Handle both bytes and file path inputs
+        if isinstance(screen_image, bytes):
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(screen_image)
+            temp_file.close()
+            frame_path = temp_file.name
+            image_bytes = screen_image
+        else:
+            frame_path = screen_image
+            with open(frame_path, 'rb') as f:
+                image_bytes = f.read()
+        
+        # Extract text anchors
+        print(f"[LLM] Extracting text anchors from screen...")
+        text_anchors = get_screen_elements(frame_path)
+        
+        # Build system instruction
+        system_instruction = _get_system_instruction(text_anchors)
+        
+        # Build user prompt
+        user_prompt = f"**Goal:** {task_description}\n\n"
+        
+        if conversation_history and len(conversation_history) > 0:
+            user_prompt += "**Previous Actions:**\n"
+            for i, action in enumerate(conversation_history[-5:], 1):
+                action_type = action.get('action', 'unknown')
+                outcome = action.get('outcome', 'unknown')
+                coord = action.get('coordinate', [])
+                coord_str = f" at {coord}" if coord else ""
+                user_prompt += f"{i}. {action_type}{coord_str} - Result: {outcome}\n"
+            user_prompt += "\n"
+        
+        user_prompt += """**IMPORTANT - Avoid Getting Stuck:**
+- If you've clicked the same area 3+ times without progress, try a different approach
+- If the task is 'Open Chrome' but you're clicking IDE elements, STOP and click Start Menu instead
+- To open applications: Click Start Menu (bottom-left corner), type app name, press Enter
+- Each action should move you closer to the goal
+- If unsure, use mouse_move to explore before clicking
+- Don't repeat failed actions - analyze what went wrong and try something different
+
+"""
+        
+        user_prompt += "Analyze the screenshot and decide the next action. Respond with ONLY valid JSON."
+        
+        # Encode image to base64 for OpenRouter
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Call OpenRouter API using OpenAI SDK
+        print(f"[LLM] Calling OpenRouter ({OPENROUTER_MODEL})...")
+        
+        response = _openrouter_client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_instruction
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": user_prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=1024,
+            temperature=0.1
+        )
+        
+        # Parse response
+        response_text = response.choices[0].message.content.strip()
+        print(f"[LLM] Raw response: {response_text[:200]}")
+        
+        # Extract JSON from response (might be wrapped in markdown)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        
+        action_dict = json.loads(response_text)
+        
+        if "action" not in action_dict:
+            print("[LLM] ERROR: Response missing 'action' field")
+            return {"action": "mouse_move", "coordinate": [0, 0]}
+        
+        action_dict = normalize_and_scale_action(action_dict)
+        
+        print(f"[LLM] Action: {action_dict.get('action')}")
+        if "coordinate" in action_dict:
+            print(f"[LLM] Coordinate: {action_dict['coordinate']}")
+        
+        return action_dict
+        
+    except json.JSONDecodeError as e:
+        print(f"[LLM] ERROR: Failed to parse JSON response: {e}")
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    except Exception as e:
+        print(f"[LLM] ERROR in _call_openrouter: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    finally:
+        if temp_file and os.path.exists(temp_file.name):
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+        
+
+def _call_nvidia(
+    screen_image: Union[bytes, str],
+    task_description: str,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Call NVIDIA API using requests library for Meta Llama 3.2 90B Vision Instruct model."""
+    
+    temp_file = None
+    try:
+        # Handle both bytes and file path inputs
+        if isinstance(screen_image, bytes):
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(screen_image)
+            temp_file.close()
+            frame_path = temp_file.name
+            image_bytes = screen_image
+        else:
+            frame_path = screen_image
+            with open(frame_path, 'rb') as f:
+                image_bytes = f.read()
+        
+        # Extract text anchors
+        print(f"[LLM] Extracting text anchors from screen...")
+        text_anchors = get_screen_elements(frame_path)
+        
+        # Build system instruction
+        system_instruction = _get_system_instruction(text_anchors)
+        
+        # Build user prompt
+        user_prompt = f"**Goal:** {task_description}\n\n"
+        
+        if conversation_history and len(conversation_history) > 0:
+            user_prompt += "**Previous Actions:**\n"
+            for i, action in enumerate(conversation_history[-5:], 1):
+                action_type = action.get('action', 'unknown')
+                outcome = action.get('outcome', 'unknown')
+                coord = action.get('coordinate', [])
+                coord_str = f" at {coord}" if coord else ""
+                user_prompt += f"{i}. {action_type}{coord_str} - Result: {outcome}\n"
+            user_prompt += "\n"
+        
+        user_prompt += """**IMPORTANT - Avoid Getting Stuck:**
+- If you've clicked the same area 3+ times without progress, try a different approach
+- If the task is 'Open Chrome' but you're clicking IDE elements, STOP and click Start Menu instead
+- To open applications: Click Start Menu (bottom-left corner), type app name, press Enter
+- Each action should move you closer to the goal
+- If unsure, use mouse_move to explore before clicking
+- Don't repeat failed actions - analyze what went wrong and try something different
+
+"""
+        
+        user_prompt += "Analyze the screenshot and decide the next action. Respond with ONLY valid JSON."
+        
+        # Encode image to base64 for NVIDIA API
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Prepare messages with vision support
+        # Combine system instruction and user prompt in a single user message with the image
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": system_instruction + "\n\n" + user_prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}"
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Prepare request payload
+        invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
+        
+        headers = {
+            "Authorization": f"Bearer {NVIDIA_API_KEY}",
+            "Accept": "text/event-stream",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": NVIDIA_MODEL,
+            "messages": messages,
+            "max_tokens": 512,
+            "temperature": 1.00,
+            "top_p": 1.00,
+            "frequency_penalty": 0.00,
+            "presence_penalty": 0.00,
+            "stream": True
+        }
+        
+        # Call NVIDIA API using requests library with streaming
+        print(f"[LLM] Calling NVIDIA API ({NVIDIA_MODEL}) with requests library (streaming)...")
+        
+        response = requests.post(invoke_url, headers=headers, json=payload, stream=True)
+        response.raise_for_status()
+        
+        # Collect streaming response (SSE format)
+        response_text = ""
+        for line in response.iter_lines():
+            if line:
+                line_str = line.decode('utf-8')
+                # SSE format: lines starting with "data: " contain JSON chunks
+                if line_str.startswith('data: '):
+                    data_str = line_str[6:]  # Remove "data: " prefix
+                    
+                    # Check for end of stream
+                    if data_str.strip() == '[DONE]':
+                        break
+                    
+                    try:
+                        # Parse JSON chunk
+                        chunk_data = json.loads(data_str)
+                        
+                        # Extract content from chunk
+                        if 'choices' in chunk_data and len(chunk_data['choices']) > 0:
+                            delta = chunk_data['choices'][0].get('delta', {})
+                            content = delta.get('content', '')
+                            if content:
+                                response_text += content
+                    except json.JSONDecodeError:
+                        # Skip malformed chunks
+                        continue
+        
+        print(f"[LLM] Streaming complete. Total response length: {len(response_text)}")
+        print(f"[LLM] Raw response: {response_text[:200]}")
+        
+        # Extract JSON from response (might be wrapped in markdown or have extra text)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        else:
+            # Try to find JSON object in the response
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text)
+            if json_match:
+                response_text = json_match.group(0)
+        
+        action_dict = json.loads(response_text)
+        
+        if "action" not in action_dict:
+            print("[LLM] ERROR: Response missing 'action' field")
+            return {"action": "mouse_move", "coordinate": [0, 0]}
+        
+        action_dict = normalize_and_scale_action(action_dict)
+        
+        print(f"[LLM] Action: {action_dict.get('action')}")
+        if "coordinate" in action_dict:
+            print(f"[LLM] Coordinate: {action_dict['coordinate']}")
+        
+        return action_dict
+        
+    except json.JSONDecodeError as e:
+        print(f"[LLM] ERROR: Failed to parse JSON response: {e}")
+        print(f"[LLM] Response text: {response_text}")
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    except Exception as e:
+        print(f"[LLM] ERROR in _call_nvidia: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    finally:
+        if temp_file and os.path.exists(temp_file.name):
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+
+
+def _call_ollama(
+    screen_image: Union[bytes, str],
+    task_description: str,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Call Ollama local model API for vision-language tasks.
+    
+    Uses Ollama's /api/generate endpoint with vision support.
+    Ollama runs locally, so no API key needed and data stays private.
+    """
+    
+    temp_file = None
+    try:
+        # Handle both bytes and file path inputs
+        if isinstance(screen_image, bytes):
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(screen_image)
+            temp_file.close()
+            frame_path = temp_file.name
+            image_bytes = screen_image
+        else:
+            frame_path = screen_image
+            with open(frame_path, 'rb') as f:
+                image_bytes = f.read()
+        
+        # Extract text anchors
+        print(f"[LLM] Extracting text anchors from screen...")
+        text_anchors = get_screen_elements(frame_path)
+        
+        # Build system instruction
+        system_instruction = _get_system_instruction(text_anchors)
+        
+        # Build user prompt with step-by-step guidance (same as Gemini)
+        user_prompt = f"**Goal:** {task_description}\n\n"
+        
+        if conversation_history and len(conversation_history) > 0:
+            user_prompt += "**Previous Actions (Last 5):**\n"
+            for i, action in enumerate(conversation_history[-5:], 1):
+                action_type = action.get('action', 'unknown')
+                outcome = action.get('outcome', 'unknown')
+                reasoning = action.get('reasoning', '')
+                coord = action.get('coordinate', [])
+                text = action.get('text', '')
+                
+                # Build detailed action description
+                action_desc = action_type
+                if coord:
+                    action_desc += f" at {coord}"
+                if text:
+                    action_desc += f" '{text}'"
+                if reasoning:
+                    action_desc += f" ({reasoning[:50]}...)" if len(reasoning) > 50 else f" ({reasoning})"
+                
+                user_prompt += f"{i}. {action_desc} - Result: {outcome}\n"
+            user_prompt += "\n"
+            
+            # Add smart analysis of history with step detection
+            recent_actions = [a.get('action') for a in conversation_history[-3:]]
+            
+            # Detect if app was just opened
+            if 'open_app' in recent_actions:
+                app_name = next((a.get('text', 'app') for a in conversation_history[-3:] if a.get('action') == 'open_app'), 'app')
+                user_prompt += f"✅ **STEP 1 COMPLETE:** {app_name} has been opened.\n"
+                user_prompt += f"📋 **NEXT STEP:** Look for the target element (user, chat, input field) and interact with it.\n\n"
+            
+            # Detect if user was clicked
+            if any(a.get('action') in ['left_click', 'click'] for a in conversation_history[-2:]):
+                last_click = next((a for a in reversed(conversation_history[-2:]) if a.get('action') in ['left_click', 'click']), None)
+                if last_click:
+                    reasoning = last_click.get('reasoning', '').lower()
+                    if 'input' in reasoning or 'field' in reasoning or 'type' in reasoning or 'message' in reasoning:
+                        user_prompt += f"✅ **STEP 2 COMPLETE:** Input field has been clicked.\n"
+                        user_prompt += f"📋 **NEXT STEP:** Now TYPE the message using 'type' action.\n\n"
+            
+            # Detect repeated same action
+            if len(set(recent_actions)) == 1 and recent_actions[0] == 'open_app':
+                app_name = conversation_history[-1].get('text', 'app')
+                user_prompt += f"⚠️ **NOTICE:** You've opened '{app_name}' multiple times. Check if it's ALREADY OPEN before trying again!\n\n"
+            elif len(recent_actions) >= 2 and recent_actions[-1] == recent_actions[-2] == 'left_click':
+                user_prompt += f"⚠️ **NOTICE:** You've clicked twice in a row. If you clicked the input field, NEXT action should be 'type' to enter the message!\n\n"
+        
+        user_prompt += """**IMPORTANT - Step-by-Step Execution:**
+- STEP 1: Find target (user, chat) → Click on it if needed
+- STEP 2: Find TEXT INPUT FIELD → Click on it (look for "Type a message" or input box at BOTTOM)
+- STEP 3: TYPE message → Use 'type' action with the message text
+- STEP 4: Send message → Press Enter with 'key' action
+
+**CRITICAL - After Clicking Input Field:**
+- If you just clicked on an input field, your NEXT action MUST be 'type'
+- Don't click again - the field is already focused
+- Use: {"action": "type", "text": "your message here", "reasoning": "typing the message", "confidence": 0.95}
+
+**Finding Text Input:**
+- Text input fields are usually at the BOTTOM of the chat window
+- Look for text anchors: "Type a message", "Message", "Send a message"
+- Input fields often have a light background or border
+- DON'T click on chat messages - click on the INPUT BOX
+- After clicking input field once, immediately TYPE (don't click again)
+
+"""
+        
+        user_prompt += "Analyze the screenshot and decide the next action. Respond with ONLY valid JSON."
+        
+        # Encode image to base64 for Ollama API
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Prepare Ollama API request
+        # Ollama uses /api/generate endpoint with streaming support
+        url = f"{OLLAMA_BASE_URL}/api/generate"
+        
+        payload = {
+            "model": OLLAMA_MODEL,
+            "prompt": system_instruction + "\n\n" + user_prompt,
+            "images": [image_base64],
+            "stream": True,
+            "options": {
+                "temperature": 0.7,
+                "num_predict": 512
+            }
+        }
+        
+        # Call Ollama API
+        print(f"[LLM] Calling Ollama API ({OLLAMA_MODEL}) at {OLLAMA_BASE_URL}...")
+        
+        response = requests.post(url, json=payload, stream=True, timeout=60)
+        response.raise_for_status()
+        
+        # Collect streaming response
+        response_text = ""
+        for line in response.iter_lines():
+            if line:
+                try:
+                    chunk_data = json.loads(line)
+                    
+                    # Ollama streams with "response" field containing text chunks
+                    if "response" in chunk_data:
+                        response_text += chunk_data["response"]
+                    
+                    # Check if generation is done
+                    if chunk_data.get("done", False):
+                        break
+                        
+                except json.JSONDecodeError:
+                    # Skip malformed chunks
+                    continue
+        
+        print(f"[LLM] Streaming complete. Total response length: {len(response_text)}")
+        print(f"[LLM] Raw response: {response_text[:200]}")
+        
+        # Extract JSON from response (might be wrapped in markdown or have extra text)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        else:
+            # Try to find JSON object in the response
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text)
+            if json_match:
+                response_text = json_match.group(0)
+        
+        action_dict = json.loads(response_text)
+        
+        if "action" not in action_dict:
+            print("[LLM] ERROR: Response missing 'action' field")
+            return {"action": "mouse_move", "coordinate": [0, 0]}
+        
+        action_dict = normalize_and_scale_action(action_dict)
+        
+        print(f"[LLM] Action: {action_dict.get('action')}")
+        if "coordinate" in action_dict:
+            print(f"[LLM] Coordinate: {action_dict['coordinate']}")
+        
+        return action_dict
+        
+    except json.JSONDecodeError as e:
+        print(f"[LLM] ERROR: Failed to parse JSON response: {e}")
+        print(f"[LLM] Response text: {response_text}")
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    except requests.exceptions.ConnectionError as e:
+        print(f"[LLM] ERROR: Cannot connect to Ollama at {OLLAMA_BASE_URL}")
+        print(f"[LLM] Make sure Ollama is running. Start it with: ollama serve")
+        print(f"[LLM] Error details: {e}")
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    except Exception as e:
+        print(f"[LLM] ERROR in _call_ollama: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"action": "mouse_move", "coordinate": [0, 0]}
+    finally:
+        if temp_file and os.path.exists(temp_file.name):
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+
+
+def _call_gemini(
+    screen_image: Union[bytes, str],
+    task_description: str,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Call Gemini API to determine next action."""
+    from google import genai
+    from google.genai import types
+    
+    temp_file = None
+    try:
+        # Handle both bytes and file path inputs
+        if isinstance(screen_image, bytes):
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(screen_image)
+            temp_file.close()
+            frame_path = temp_file.name
+            image_bytes = screen_image
+        else:
+            frame_path = screen_image
+            with open(frame_path, 'rb') as f:
+                image_bytes = f.read()
+        
+        # Extract text anchors
+        print(f"[LLM] Extracting text anchors from screen...")
+        text_anchors = get_screen_elements(frame_path)
+        
+        # Build system instruction
+        system_instruction = _get_system_instruction(text_anchors)
+        
+        # Build user prompt with step-by-step guidance
+        user_prompt = f"**Goal:** {task_description}\n\n"
+        
+        if conversation_history and len(conversation_history) > 0:
+            user_prompt += "**Previous Actions (Last 5):**\n"
+            for i, action in enumerate(conversation_history[-5:], 1):
+                action_type = action.get('action', 'unknown')
+                outcome = action.get('outcome', 'unknown')
+                reasoning = action.get('reasoning', '')
+                coord = action.get('coordinate', [])
+                text = action.get('text', '')
+                
+                # Build detailed action description
+                action_desc = action_type
+                if coord:
+                    action_desc += f" at {coord}"
+                if text:
+                    action_desc += f" '{text}'"
+                if reasoning:
+                    action_desc += f" ({reasoning[:50]}...)" if len(reasoning) > 50 else f" ({reasoning})"
+                
+                user_prompt += f"{i}. {action_desc} - Result: {outcome}\n"
+            user_prompt += "\n"
+            
+            # Add smart analysis of history with step detection
+            recent_actions = [a.get('action') for a in conversation_history[-3:]]
+            
+            # Detect if app was just opened
+            if 'open_app' in recent_actions:
+                app_name = next((a.get('text', 'app') for a in conversation_history[-3:] if a.get('action') == 'open_app'), 'app')
+                user_prompt += f"✅ **STEP 1 COMPLETE:** {app_name} has been opened.\n"
+                user_prompt += f"📋 **NEXT STEP:** Look for the target element (user, chat, input field) and interact with it.\n\n"
+            
+            # Detect if user was clicked
+            if any(a.get('action') in ['left_click', 'click'] for a in conversation_history[-2:]):
+                last_click = next((a for a in reversed(conversation_history[-2:]) if a.get('action') in ['left_click', 'click']), None)
+                if last_click:
+                    reasoning = last_click.get('reasoning', '').lower()
+                    if 'user' in reasoning or 'chat' in reasoning or 'pratham' in reasoning:
+                        user_prompt += f"✅ **STEP 2 COMPLETE:** Target user/chat has been clicked.\n"
+                        user_prompt += f"📋 **NEXT STEP:** Find and click the TEXT INPUT FIELD (look for 'Type a message', 'Message', or input box).\n\n"
+            
+            # Detect repeated same action
+            if len(set(recent_actions)) == 1 and recent_actions[0] == 'open_app':
+                app_name = conversation_history[-1].get('text', 'app')
+                user_prompt += f"⚠️ **NOTICE:** You've opened '{app_name}' multiple times. Check if it's ALREADY OPEN before trying again!\n\n"
+            elif len(recent_actions) >= 2 and recent_actions[-1] == recent_actions[-2] == 'left_click':
+                user_prompt += f"⚠️ **NOTICE:** You've clicked twice in a row. Make sure you're clicking the RIGHT element (text input field, not chat history).\n\n"
+        
+        user_prompt += """**IMPORTANT - Step-by-Step Execution:**
+- STEP 1: Open app (if needed) → Check if app UI is visible
+- STEP 2: Find target (user, chat) → Click on it to open chat
+- STEP 3: Find TEXT INPUT FIELD → Look for "Type a message" or input box at BOTTOM of chat
+- STEP 4: Click on input field → Wait for cursor to appear
+- STEP 5: Type message → Use 'type' action
+- STEP 6: Send message → Press Enter with 'key' action
+
+**CRITICAL - Finding Text Input:**
+- Text input fields are usually at the BOTTOM of the chat window
+- Look for text anchors: "Type a message", "Message @username", "Send a message"
+- Input fields often have a light background or border
+- DON'T click on chat messages or user names - click on the INPUT BOX
+- If you can't find text anchor, look for the bottom-most clickable area in the chat
+
+**Avoid Getting Stuck:**
+- Each action should progress to the NEXT step
+- Don't repeat the same click if it didn't work - try a different location
+- If you clicked on a user, NEXT click should be on the text input field
+- If you're stuck, use mouse_move to explore the screen first
+
+"""
+        
+        user_prompt += "Analyze the screenshot and decide the next action. Respond with ONLY valid JSON."
+        
+        # Create image part
         image_part = types.Part.from_bytes(
             data=image_bytes,
             mime_type="image/jpeg"
         )
         
-        # Step 5: Call Gemini 2.5 Flash with structured outputs
+        # Call Gemini
         print("[LLM] Calling Gemini 2.5 Flash...")
         
         response = _genai_client.models.generate_content(
@@ -359,24 +1139,21 @@ def call_llm(
             ],
             config=types.GenerateContentConfig(
                 temperature=0.1,
-                response_mime_type="application/json",  # Force JSON output
+                response_mime_type="application/json",
                 max_output_tokens=1024
             )
         )
         
-        # Step 6: Parse response
+        # Parse response
         response_text = response.text.strip() if response.text else "{}"
         print(f"[LLM] Raw response: {response_text[:200]}")
         
-        # Parse JSON response
         action_dict = json.loads(response_text)
         
-        # Validate action field exists
         if "action" not in action_dict:
             print("[LLM] ERROR: Response missing 'action' field")
             return {"action": "mouse_move", "coordinate": [0, 0]}
         
-        # Scale coordinates if present
         action_dict = normalize_and_scale_action(action_dict)
         
         print(f"[LLM] Action: {action_dict.get('action')}")
@@ -388,15 +1165,12 @@ def call_llm(
     except json.JSONDecodeError as e:
         print(f"[LLM] ERROR: Failed to parse JSON response: {e}")
         return {"action": "mouse_move", "coordinate": [0, 0]}
-        
     except Exception as e:
-        print(f"[LLM] ERROR in call_llm: {e}")
+        print(f"[LLM] ERROR in _call_gemini: {e}")
         import traceback
         traceback.print_exc()
         return {"action": "mouse_move", "coordinate": [0, 0]}
-    
     finally:
-        # Clean up temporary file if created
         if temp_file and os.path.exists(temp_file.name):
             try:
                 os.unlink(temp_file.name)
@@ -494,39 +1268,121 @@ def normalize_and_scale_action(action_dict: Dict[str, Any]) -> Dict[str, Any]:
     return action_dict
 
 
-# Backward compatibility functions for existing code
-def switch_model(model_name: str) -> bool:
-    """Switch between Gemini models (for backward compatibility).
-    
-    Note: New architecture uses gemini-2.5-flash only.
-    This function is kept for compatibility but doesn't change behavior.
+# Model switching and management functions
+def switch_provider(provider: str) -> bool:
+    """Switch between LLM providers (Claude, Gemini, OpenRouter, NVIDIA, or Ollama).
     
     Args:
-        model_name: "flash" or "pro"
+        provider: "claude", "gemini", "openrouter", "nvidia", or "ollama"
     
     Returns:
-        True (always succeeds)
+        bool: True if switch successful, False otherwise
     """
-    print(f"[LLM] Model switch requested to {model_name} (using gemini-2.5-flash)")
-    return True
+    global LLM_PROVIDER, _genai_client, _claude_client, _openrouter_client, _nvidia_client
+    
+    provider = provider.lower()
+    if provider not in ["claude", "gemini", "openrouter", "nvidia", "ollama"]:
+        print(f"[LLM] ERROR: Invalid provider '{provider}'. Use 'claude', 'gemini', 'openrouter', 'nvidia', or 'ollama'")
+        return False
+    
+    try:
+        if provider == "claude" and not _claude_client:
+            import anthropic
+            _claude_client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+            print(f"[LLM] Claude client initialized (model: {CLAUDE_MODEL})")
+        elif provider == "gemini" and not _genai_client:
+            from google import genai
+            _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+            print("[LLM] Google GenAI client initialized")
+        elif provider == "openrouter" and not _openrouter_client:
+            from openai import OpenAI
+            _openrouter_client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=OPENROUTER_API_KEY
+            )
+            print(f"[LLM] OpenRouter client initialized (model: {OPENROUTER_MODEL})")
+        elif provider == "nvidia" and not _nvidia_client:
+            import requests
+            _nvidia_client = True
+            print(f"[LLM] NVIDIA client initialized (model: {NVIDIA_MODEL})")
+        elif provider == "ollama":
+            # Ollama is local, no client initialization needed
+            print(f"[LLM] Ollama local model initialized (model: {OLLAMA_MODEL} at {OLLAMA_BASE_URL})")
+        
+        # Update config
+        import config
+        config.LLM_PROVIDER = provider
+        
+        print(f"[LLM] ✓ Switched to {provider.upper()}")
+        return True
+        
+    except Exception as e:
+        print(f"[LLM] ERROR: Failed to switch to {provider}: {e}")
+        return False
+
+
+def get_current_provider() -> str:
+    """Get the currently active LLM provider.
+    
+    Returns:
+        str: "claude" or "gemini"
+    """
+    return LLM_PROVIDER
 
 
 def get_current_model() -> str:
-    """Get the currently active model name (for backward compatibility).
+    """Get the currently active model name.
     
     Returns:
-        str: Always returns "flash"
+        str: Model identifier
     """
-    return "flash"
+    if LLM_PROVIDER == "claude":
+        return CLAUDE_MODEL
+    elif LLM_PROVIDER == "openrouter":
+        return OPENROUTER_MODEL
+    elif LLM_PROVIDER == "nvidia":
+        return NVIDIA_MODEL
+    elif LLM_PROVIDER == "ollama":
+        return OLLAMA_MODEL
+    else:
+        return "gemini-2.5-flash"
 
 
 def get_model_display_name() -> str:
-    """Get the display name of the current model (for backward compatibility).
+    """Get the display name of the current model.
     
     Returns:
-        str: Display name
+        str: Human-readable model name
     """
-    return "Gemini 2.5 Flash"
+    if LLM_PROVIDER == "claude":
+        model_names = {
+            "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet",
+            "claude-3-5-haiku-20241022": "Claude 3.5 Haiku",
+            "claude-3-opus-20240229": "Claude 3 Opus"
+        }
+        return model_names.get(CLAUDE_MODEL, CLAUDE_MODEL)
+    elif LLM_PROVIDER == "openrouter":
+        return f"OpenRouter: {OPENROUTER_MODEL}"
+    elif LLM_PROVIDER == "nvidia":
+        return f"NVIDIA: {NVIDIA_MODEL}"
+    elif LLM_PROVIDER == "ollama":
+        return f"Ollama Local: {OLLAMA_MODEL}"
+    else:
+        return "Gemini 2.5 Flash"
+
+
+# Backward compatibility
+def switch_model(model_name: str) -> bool:
+    """Legacy function for switching models.
+    
+    Args:
+        model_name: Model identifier
+    
+    Returns:
+        bool: True if successful
+    """
+    print(f"[LLM] Legacy switch_model called with {model_name}")
+    return True
 
 
 # Made with Bob

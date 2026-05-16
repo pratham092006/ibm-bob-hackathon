@@ -43,7 +43,20 @@ The reticle cursor appears **alongside your normal cursor** with color-coded sta
 
 ## 📚 Documentation
 
+### Getting Started
 - [HOW_TO_RUN.md](HOW_TO_RUN.md) - Detailed setup and usage guide
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Quick reference for developers
+
+### Architecture & Design
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Complete system architecture and component details
+- [FLOW_DIAGRAMS.md](FLOW_DIAGRAMS.md) - Visual flow diagrams and execution traces
+
+### Configuration
+- [LLM_SETUP_GUIDE.md](LLM_SETUP_GUIDE.md) - Configure different LLM providers
+- [NVIDIA_MODELS_GUIDE.md](NVIDIA_MODELS_GUIDE.md) - NVIDIA NIM models setup
+- [FREE_LLM_OPTIONS.md](FREE_LLM_OPTIONS.md) - Free LLM alternatives
+
+### Project Info
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status and features
 - [AXON_PRD.md](AXON_PRD.md) - Product requirements document
 

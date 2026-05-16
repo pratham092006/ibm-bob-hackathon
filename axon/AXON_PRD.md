@@ -38,7 +38,7 @@
 ```
 User types / speaks task
         │
-        ▼
+        
 ┌─────────────────┐     frame      ┌─────────────────┐     action JSON   ┌─────────────────┐
 │  Capture live   │ ─────────────► │   Vision LLM    │ ────────────────► │ Execute action  │
 │  frame (mss)    │                │ Computer Use API │                   │ pyautogui/pynput│

@@ -89,9 +89,9 @@ def _is_stuck_loop(history):
     """Check if actions indicate a stuck loop (enhanced detection).
     
     Detects three types of loops:
-    1. Exact repetition: Same action repeated 3+ times
+    1. Exact repetition: Same action repeated 3+ times (EXCEPT open_app which may need retries)
     2. Semantic loop: Last 5 actions in same 100px region without progress
-    3. Timeout: No progress for 15+ seconds
+    3. Timeout: No progress for 20+ seconds (increased from 15)
     
     Args:
         history (deque): Deque containing last 10 action dictionaries
@@ -107,10 +107,10 @@ def _is_stuck_loop(history):
     # Convert deque to list for easier comparison
     actions = list(history)
     
-    # Check 1: Timeout detection (15 seconds without progress)
+    # Check 1: Timeout detection (20 seconds without progress - increased tolerance)
     current_time = time.time()
-    if current_time - last_progress_time > MAX_NO_PROGRESS_TIME:
-        logger.warning(f"Timeout detected: No progress for {MAX_NO_PROGRESS_TIME} seconds")
+    if current_time - last_progress_time > 20:  # Increased from 15 to 20
+        logger.warning(f"Timeout detected: No progress for 20 seconds")
         return True
     
     # Check 2: Exact repetition (last 3 actions identical)
@@ -121,6 +121,20 @@ def _is_stuck_loop(history):
         # All three must be same type
         if len(set(action_types)) == 1:
             action_type = action_types[0]
+            
+            # EXCEPTION: open_app actions are allowed to repeat (app may take time to open)
+            if action_type == 'open_app':
+                # Check if same app is being opened repeatedly
+                app_names = [a.get('text', '') for a in last_three]
+                if len(set(app_names)) == 1 and app_names[0] != '':
+                    # Only flag as stuck if repeated more than 3 times
+                    if len(history) >= 4:
+                        last_four = actions[-4:]
+                        if all(a.get('action') == 'open_app' and a.get('text') == app_names[0] for a in last_four):
+                            logger.warning(f"Stuck loop: open_app '{app_names[0]}' repeated 4+ times")
+                            return True
+                    # Otherwise allow it (app might be loading)
+                    return False
             
             # For coordinate-based actions
             if action_type in ['left_click', 'right_click', 'middle_click', 'double_click', 'mouse_move', 'scroll']:
@@ -149,7 +163,7 @@ def _is_stuck_loop(history):
                             logger.warning(f"Exact repetition detected: Same {action_type} 3 times")
                             return True
             
-            # For text-based actions
+            # For text-based actions (but not open_app which we handled above)
             elif action_type in ['type', 'key']:
                 texts = [a.get('text', '') for a in last_three]
                 if len(set(texts)) == 1 and texts[0] != '':

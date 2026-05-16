@@ -13,18 +13,54 @@ ui_queue = queue.Queue()  # Dedicated queue for overlay/reticle UI updates
 task_queue = queue.Queue()  # For submitting tasks to agent loop
 kill_event = threading.Event()  # Dev 2 sets to halt, Dev 1 checks in loop
 
-# Gemini Configuration - Load from environment variable
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment. Please create a .env file with your API key.")
+# LLM Provider Configuration
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openrouter").lower()  # "claude", "gemini", "openrouter", "nvidia", or "ollama"
 
-# Available models - user can switch between these
+# Gemini Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# Claude Configuration
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
+
+# OpenRouter Configuration
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "anthropic/claude-3.5-haiku")
+
+# NVIDIA Configuration
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.2-90b-vision-instruct")
+
+# Ollama Configuration
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2-vision:11b")
+
+# Validate API keys based on selected provider (skip validation for ollama - local model)
+if LLM_PROVIDER == "claude" and not CLAUDE_API_KEY:
+    raise ValueError("CLAUDE_API_KEY not found in environment. Please add it to your .env file.")
+elif LLM_PROVIDER == "gemini" and not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in environment. Please add it to your .env file.")
+elif LLM_PROVIDER == "openrouter" and not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY not found in environment. Please add it to your .env file.")
+elif LLM_PROVIDER == "nvidia" and not NVIDIA_API_KEY:
+    raise ValueError("NVIDIA_API_KEY not found in environment. Please add it to your .env file.")
+elif LLM_PROVIDER == "ollama":
+    # Ollama is local, no API key needed
+    print(f"[Config] Using Ollama local model: {OLLAMA_MODEL} at {OLLAMA_BASE_URL}")
+
+# Available models for each provider
 GEMINI_MODELS = {
     "flash": "gemini-2.5-flash",  # Faster, cheaper (latest Flash model)
     "pro": "gemini-2.5-pro"        # More capable, slower (latest Pro model)
 }
 
-# Default model to use
+CLAUDE_MODELS = {
+    "sonnet": "claude-3-5-sonnet-20241022",  # Best balance (recommended)
+    "haiku": "claude-3-5-haiku-20241022",    # Fastest
+    "opus": "claude-3-opus-20240229"         # Most capable
+}
+
+# Default model to use (for Gemini backward compatibility)
 CURRENT_MODEL = "flash"  # Change to "pro" for Gemini 2.5 Pro
 
 # Frame capture settings

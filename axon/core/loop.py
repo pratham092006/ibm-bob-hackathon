@@ -206,9 +206,19 @@ def run_agent_loop(task_description):
             reasoning = action_dict.get('reasoning', 'No reasoning provided')
             confidence = action_dict.get('confidence', 0.0)
             
-            print(f"[AGENT LOOP] Action: {action_type}")
-            print(f"[AGENT LOOP] Reasoning: {reasoning}")
-            print(f"[AGENT LOOP] Confidence: {confidence}")
+            # VERBOSE LOGGING - Show what the model is thinking
+            print(f"\n{'='*80}")
+            print(f"[ITERATION {action_count + 1}] MODEL DECISION:")
+            print(f"{'='*80}")
+            print(f"🎯 Action: {action_type}")
+            print(f"💭 Reasoning: {reasoning}")
+            print(f"📊 Confidence: {confidence:.2%}")
+            if 'coordinate' in action_dict:
+                coord = action_dict['coordinate']
+                print(f"📍 Target: ({coord[0]}, {coord[1]})")
+            if 'text' in action_dict:
+                print(f"⌨️  Text: '{action_dict['text']}'")
+            print(f"{'='*80}\n")
             
             # Save debug screenshot with annotation BEFORE executing action
             if DEBUG_MODE and action_type not in ['error', 'wait']:
@@ -274,13 +284,17 @@ def run_agent_loop(task_description):
             conversation_history.append(action_dict)
             
             # Sleep before next iteration (allow screen to update)
-            # Click actions need more time for UI animations (Start menu, app launch)
-            if action_type in ['click', 'left_click', 'right_click', 'double_click']:
+            # Different actions need different wait times
+            if action_type == 'open_app':
+                delay = 3.0  # Apps need time to launch and render UI
+            elif action_type in ['click', 'left_click', 'right_click', 'double_click']:
                 delay = 1.5  # Clicks trigger UI changes that take time
             elif action_type == 'key' and action_dict.get('text', '') == 'enter':
                 delay = 2.0  # Enter often launches apps, needs more time
+            elif action_type == 'type':
+                delay = 0.5  # Typing is fast
             else:
-                delay = 0.8  # Typing and other actions
+                delay = 0.8  # Other actions
             print(f"[AGENT LOOP] Sleeping for {delay}s...")
             time.sleep(delay)
             

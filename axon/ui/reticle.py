@@ -17,7 +17,7 @@ Production-level implementation with:
 import math
 import time
 from typing import Optional, Tuple
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QPainter, QColor, QPen, QRadialGradient, QBrush
 
 from .logger import get_logger, log_performance
@@ -137,14 +137,14 @@ class Reticle:
                 self.STATE_CLICKING: QColor(255, 100, 100, 200),
             }
     
-    def draw(self, painter: QPainter, current_time: float = 0) -> None:
+    def draw(self, painter: Optional[QPainter], current_time: float = 0) -> None:
         """Draw the reticle with error handling and performance monitoring.
         
         Args:
             painter: Qt painter object
             current_time: Current time for animations
         """
-        if not self.visible or self.fade_alpha <= 0:
+        if painter is None or not self.visible or self.fade_alpha <= 0:
             return
         
         start_time = time.time()
@@ -229,8 +229,9 @@ class Reticle:
             layer_index: Layer index (0 = innermost)
         """
         try:
-            # Create radial gradient from center
-            gradient = QRadialGradient(center, radius)
+            # Create radial gradient from center (convert QPoint to QPointF)
+            center_f = QPointF(center.x(), center.y())
+            gradient = QRadialGradient(center_f, radius)
             
             # Calculate alpha based on layer
             alpha_multiplier = 1.0 - (layer_index * 0.3)

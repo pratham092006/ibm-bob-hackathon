@@ -20,10 +20,9 @@ from typing import Optional
 import sys
 import time
 import psutil
-import queue
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QTimer, QPoint
-from PyQt6.QtGui import QPainter, QColor, QPen, QFont
+from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QPaintEvent
 
 from .reticle import Reticle
 from .logger import get_logger, log_performance
@@ -212,12 +211,14 @@ class TransparentOverlay(QWidget):
                 "overlay"
             )
     
-    def paintEvent(self, event):
+    def paintEvent(self, a0: Optional[QPaintEvent]):
         """Paint the overlay content with error handling and performance tracking.
         
         Args:
-            event: Paint event
+            a0: Paint event
         """
+        if a0 is None:
+            return
         self.frame_start_time = time.time()
         
         try:
@@ -592,89 +593,5 @@ def run_overlay_app(overlay: TransparentOverlay):
 
 
 
-def start_overlay_queue_listener(overlay, ui_queue):
-    """Listen for status updates from agent and update overlay position.
-    
-    This function creates a QTimer that periodically checks the ui_queue
-    for status updates and updates the overlay accordingly. This is the
-    thread-safe way to communicate between the background agent thread
-    and the main Qt UI thread.
-    
-    Args:
-        overlay (TransparentOverlay): The overlay widget to update
-        ui_queue (queue.Queue): Queue containing status updates from agent
-        
-    Returns:
-        QTimer: The timer object (keep reference to prevent garbage collection)
-    """
-    timer = QTimer()
-    
-    def check_queue():
-        """Check queue for updates and update overlay."""
-        try:
-            while not ui_queue.empty():
-                status = ui_queue.get_nowait()
-                
-                if not isinstance(status, dict):
-                    continue
-                
-                status_type = status.get('type', '')
-                message = status.get('message', '')
-                
-                # Update overlay status text
-                if message:
-                    overlay.set_status(message)
-                
-                # Handle action updates - move cursor BEFORE action executes
-                if status_type == 'action':
-                    action = status.get('action', {})
-                    action_type = action.get('action', '')
-                    
-                    # Move reticle to coordinates if available
-                    if 'coordinate' in action:
-                        coord = action['coordinate']
-                        if isinstance(coord, (list, tuple)) and len(coord) == 2:
-                            overlay.set_reticle_position(coord[0], coord[1], animate=True)
-                    elif 'x' in action and 'y' in action:
-                        overlay.set_reticle_position(action['x'], action['y'], animate=True)
-                    
-                    # Set state based on action type
-                    state_map = {
-                        'left_click': 'clicking',
-                        'right_click': 'clicking',
-                        'double_click': 'clicking',
-                        'click': 'clicking',
-                        'mouse_move': 'moving',
-                        'type': 'idle',
-                        'key': 'idle'
-                    }
-                    state = state_map.get(action_type, 'thinking')
-                    overlay.set_reticle_state(state)
-                
-                elif status_type == 'thinking':
-                    overlay.set_reticle_state('thinking')
-                
-                elif status_type == 'task_start':
-                    overlay.show()
-                    overlay.show_reticle()
-                
-                elif status_type == 'task_complete':
-                    overlay.set_reticle_state('idle')
-                
-                elif status_type == 'error':
-                    overlay.set_reticle_state('idle')
-                
-                elif status_type == 'stopped':
-                    overlay.set_reticle_state('idle')
-                    
-        except queue.Empty:
-            pass  # Queue is empty, continue
-        except Exception as e:
-            # Silently handle queue errors to prevent UI crashes
-            print(f"[OVERLAY] Queue error: {e}")
-    
-    timer.timeout.connect(check_queue)
-    timer.start(50)  # Check every 50ms for smooth updates
-    return timer
 
 # Made with Bob

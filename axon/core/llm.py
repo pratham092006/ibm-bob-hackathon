@@ -11,17 +11,16 @@ import json
 import os
 import tempfile
 import time
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Tuple
 from PIL import Image
 import io
 import easyocr
 from google import genai
 from google.genai import types
 
-# Import configuration
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import GEMINI_API_KEY, FRAME_WIDTH, FRAME_HEIGHT, USE_GPU, OCR_CACHE_DURATION, GEMINI_MODELS, CURRENT_MODEL
+# Import configuration - use relative imports
+from ..config import GEMINI_API_KEY, FRAME_WIDTH, FRAME_HEIGHT, USE_GPU, OCR_CACHE_DURATION, GEMINI_MODELS, CURRENT_MODEL
+from .capture import get_screen_dimensions
 
 # Initialize EasyOCR reader globally (expensive operation, do once)
 print("[LLM] Initializing EasyOCR reader...")
@@ -51,8 +50,25 @@ print("[LLM] Initializing Google GenAI client...")
 _genai_client = genai.Client(api_key=GEMINI_API_KEY)
 print("[LLM] Google GenAI client initialized")
 
+def get_screen_resolution() -> Tuple[int, int]:
+    """Get the actual screen resolution for coordinate scaling.
+    
+    Returns:
+        Tuple[int, int]: (width, height) of the primary monitor
+    """
+    try:
+        return get_screen_dimensions()
+    except Exception:
+        # Fallback: try pyautogui
+        try:
+            import pyautogui
+            return pyautogui.size()
+        except Exception:
+            return (1920, 1080)  # Default fallback
 
-def get_screen_elements(image_path: str, native_width: int = None, native_height: int = None, confidence_threshold: float = 0.4) -> List[Dict[str, Any]]:
+
+
+def get_screen_elements(image_path: str, native_width: Optional[int] = None, native_height: Optional[int] = None, confidence_threshold: float = 0.4) -> List[Dict[str, Any]]:
     """Extract text anchors from screen capture using EasyOCR with caching.
     
     This provides grounded vision - the LLM gets actual text locations
@@ -114,15 +130,15 @@ def get_screen_elements(image_path: str, native_width: int = None, native_height
         for detection in results:
             bbox, text, confidence = detection
             
-            # Filter low-confidence detections
-            if confidence < confidence_threshold:
+            # Filter low-confidence detections (cast to float for type safety)
+            if float(confidence) < confidence_threshold:
                 continue
             
             # Calculate center coordinate from bounding box (in downscaled space)
             # bbox format: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
             # (top_left, top_right, bottom_right, bottom_left)
-            x_coords = [point[0] for point in bbox]
-            y_coords = [point[1] for point in bbox]
+            x_coords = [float(point[0]) for point in bbox]
+            y_coords = [float(point[1]) for point in bbox]
             
             center_x = sum(x_coords) / len(x_coords)
             center_y = sum(y_coords) / len(y_coords)
@@ -346,7 +362,7 @@ def call_llm(
         print("[LLM] Calling Gemini API...")
         
         response = _genai_client.models.generate_content(
-            model=GEMINI_MODELS[CURRENT_MODEL],
+            model=GEMINI_MODELS.get(CURRENT_MODEL, "gemini-2.0-flash-exp"),
             contents=[
                 types.Content(
                     role="user",
@@ -365,7 +381,7 @@ def call_llm(
         )
         
         # Step 6: Parse response
-        response_text = response.text.strip() if response.text else "{}"
+        response_text = response.text.strip() if hasattr(response, 'text') and response.text else "{}"
         print(f"[LLM] Raw response: {response_text[:200]}")
         
         # Parse JSON response
@@ -397,32 +413,14 @@ def call_llm(
     
     finally:
         # Clean up temporary file if created
-        if temp_file and os.path.exists(temp_file.name):
+        if temp_file is not None and hasattr(temp_file, 'name') and os.path.exists(temp_file.name):
             try:
                 os.unlink(temp_file.name)
             except:
                 pass
 
 
-def get_screen_resolution() -> tuple:
-    """Get the actual screen resolution for coordinate scaling.
-    
-    Returns:
-        tuple: (width, height) of the primary monitor
-    """
-    try:
-        from core.capture import get_screen_dimensions
-        return get_screen_dimensions()
-    except Exception:
-        # Fallback: try pyautogui
-        try:
-            import pyautogui
-            return pyautogui.size()
-        except Exception:
-            return (1920, 1080)  # Default fallback
-
-
-def scale_coordinates(x: int, y: int, from_width: int = FRAME_WIDTH, from_height: int = FRAME_HEIGHT) -> tuple:
+def scale_coordinates(x: int, y: int, from_width: int = FRAME_WIDTH, from_height: int = FRAME_HEIGHT) -> Tuple[int, int]:
     """Scale coordinates from image space to real screen space.
     
     The LLM sees a resized image (FRAME_WIDTH x FRAME_HEIGHT) but we need 
@@ -507,6 +505,7 @@ def switch_model(model_name: str) -> bool:
     Returns:
         True (always succeeds)
     """
+    _ = model_name  # Keep parameter for API compatibility
     print(f"[LLM] Model switch requested to {model_name} (using gemini-2.5-flash)")
     return True
 

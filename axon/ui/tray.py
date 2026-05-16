@@ -21,12 +21,16 @@ Production-level implementation with:
 - Notification preferences
 """
 
-from typing import Optional, Callable, List
-import pystray
-from PIL import Image, ImageDraw, ImageFont
-from config import status_queue, kill_event
+from typing import Optional, Callable, List, TYPE_CHECKING
 import threading
 import time
+
+if TYPE_CHECKING:
+    import pystray
+
+import pystray
+from PIL import Image, ImageDraw, ImageFont
+from ..config import status_queue, kill_event
 
 from .logger import get_logger, log_error_with_context
 from .exceptions import TrayIconException, ErrorCode, handle_exception
@@ -72,17 +76,17 @@ class TrayIcon:
             self.config = get_config().tray
             
             # State
-            self.icon: Optional[pystray.Icon] = None
+            self.icon = None
             self.state = self.STATE_IDLE
             self.overlay = overlay
             self.input_dialog_callback = input_dialog_callback
             self.overlay_visible = True
             self.agent_running = False
-            self.monitor_thread: Optional[threading.Thread] = None
+            self.monitor_thread = None
             self.running = False
             
             # Recent tasks
-            self.recent_tasks: List[str] = []
+            self.recent_tasks = []
             self.max_recent_tasks = 5
             
             # Notification tracking
@@ -256,8 +260,9 @@ class TrayIcon:
             self.monitor_thread.start()
             
             # Run in separate thread
-            icon_thread = threading.Thread(target=self.icon.run, daemon=True)
-            icon_thread.start()
+            if self.icon is not None:
+                icon_thread = threading.Thread(target=self.icon.run, daemon=True)
+                icon_thread.start()
             
             logger.info("Tray icon started successfully")
             

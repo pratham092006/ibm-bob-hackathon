@@ -18,10 +18,10 @@ Production-level implementation with:
 """
 
 from typing import Optional, List
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
                               QLineEdit, QPushButton, QLabel, QCompleter)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QStringListModel
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QMouseEvent
 import threading
 import time
 
@@ -228,12 +228,12 @@ class TaskInputDialog(QDialog):
             self.config = get_config().input_dialog
             
             # State
-            self.voice_recorder: Optional[VoiceRecorder] = None
+            self.voice_recorder = None
             self.is_recording = False
             self.drag_position = QPoint()
             
             # Input history
-            self.input_history: List[str] = []
+            self.input_history = []
             self.history_index = -1
             
             # Initialize UI
@@ -469,11 +469,13 @@ class TaskInputDialog(QDialog):
         """Center the dialog on screen."""
         try:
             from PyQt6.QtWidgets import QApplication
-            screen = QApplication.primaryScreen().geometry()
-            x = (screen.width() - self.width()) // 2
-            y = (screen.height() - self.height()) // 2
-            self.move(x, y)
-            logger.debug(f"Dialog centered at ({x}, {y})")
+            primary_screen = QApplication.primaryScreen()
+            if primary_screen is not None:
+                screen = primary_screen.geometry()
+                x = (screen.width() - self.width()) // 2
+                y = (screen.height() - self.height()) // 2
+                self.move(x, y)
+                logger.debug(f"Dialog centered at ({x}, {y})")
         except Exception as e:
             logger.warning(f"Failed to center dialog: {e}")
     
@@ -665,29 +667,33 @@ class TaskInputDialog(QDialog):
         except Exception as e:
             logger.warning(f"Failed to add to history: {e}")
     
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, a0: Optional[QMouseEvent]):
         """Handle mouse press for dragging.
         
         Args:
-            event: Mouse event
+            a0: Mouse event
         """
+        if a0 is None:
+            return
         try:
-            if event.button() == Qt.MouseButton.LeftButton and self.config.draggable:
-                self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-                event.accept()
+            if a0.button() == Qt.MouseButton.LeftButton and self.config.draggable:
+                self.drag_position = a0.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                a0.accept()
         except Exception as e:
             logger.debug(f"Error in mouse press: {e}")
     
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, a0: Optional[QMouseEvent]):
         """Handle mouse move for dragging.
         
         Args:
-            event: Mouse event
+            a0: Mouse event
         """
+        if a0 is None:
+            return
         try:
-            if event.buttons() == Qt.MouseButton.LeftButton and self.config.draggable:
-                self.move(event.globalPosition().toPoint() - self.drag_position)
-                event.accept()
+            if a0.buttons() == Qt.MouseButton.LeftButton and self.config.draggable:
+                self.move(a0.globalPosition().toPoint() - self.drag_position)
+                a0.accept()
         except Exception as e:
             logger.debug(f"Error in mouse move: {e}")
     

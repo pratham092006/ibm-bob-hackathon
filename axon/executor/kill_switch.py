@@ -28,6 +28,8 @@ class KillSwitch:
         """Initialize kill switch."""
         self.listener = None
         self.current_keys = set()
+        self.is_running = False
+        print("🔒 Kill switch initialized (Press F12 to stop)")
         
     def start(self):
         """Start the kill switch listener in a separate thread.
@@ -35,19 +37,45 @@ class KillSwitch:
         Returns:
             bool: True if started successfully
         """
-        # TODO: Implement kill switch startup
-        # 1. Create pynput keyboard listener
-        # 2. Set up on_press and on_release handlers
-        # 3. Start listener in non-blocking mode (separate thread)
-        # 4. Log that kill switch is active
-        pass
+        if self.is_running:
+            print("⚠️ Kill switch is already running")
+            return False
+        
+        try:
+            # Create pynput keyboard listener with on_press and on_release handlers
+            self.listener = keyboard.Listener(
+                on_press=self.on_press,
+                on_release=self.on_release
+            )
+            
+            # Start listener as daemon thread (non-blocking)
+            self.listener.daemon = True
+            self.listener.start()
+            
+            self.is_running = True
+            print("✅ Kill switch active - Press F12 to emergency stop")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to start kill switch: {e}")
+            return False
     
     def stop(self):
         """Stop the kill switch listener."""
-        # TODO: Implement kill switch shutdown
-        # 1. Stop the listener
-        # 2. Clean up resources
-        pass
+        if not self.is_running:
+            return
+        
+        try:
+            if self.listener:
+                self.listener.stop()
+                self.listener = None
+            
+            self.is_running = False
+            self.current_keys.clear()
+            print("🔓 Kill switch deactivated")
+            
+        except Exception as e:
+            print(f"⚠️ Error stopping kill switch: {e}")
     
     def on_press(self, key):
         """Handle key press events.
@@ -55,11 +83,17 @@ class KillSwitch:
         Args:
             key: Key that was pressed
         """
-        # TODO: Implement key press handler
-        # 1. Add key to current_keys set
-        # 2. Check if kill hotkey combination is pressed
-        # 3. If yes, trigger kill switch
-        pass
+        try:
+            # Add key to current_keys set
+            self.current_keys.add(key)
+            
+            # Check if kill hotkey (F12) is pressed
+            if key in KILL_HOTKEY:
+                print(f"🔴 Kill hotkey detected: {key}")
+                self.trigger()
+                
+        except Exception as e:
+            print(f"⚠️ Error in on_press: {e}")
     
     def on_release(self, key):
         """Handle key release events.
@@ -67,33 +101,54 @@ class KillSwitch:
         Args:
             key: Key that was released
         """
-        # TODO: Implement key release handler
-        # 1. Remove key from current_keys set
-        pass
+        try:
+            # Remove key from current_keys set when released
+            self.current_keys.discard(key)
+            
+        except Exception as e:
+            print(f"⚠️ Error in on_release: {e}")
     
     def trigger(self):
         """Trigger the kill switch to stop the agent."""
-        # TODO: Implement kill switch trigger
-        # 1. Set kill_event
-        # 2. Update status_queue with stop message
-        # 3. Log the trigger
-        # 4. Optionally play sound or show notification
-        print("🛑 KILL SWITCH ACTIVATED - Stopping agent...")
+        print("\n" + "="*60)
+        print("🛑 KILL SWITCH ACTIVATED - EMERGENCY STOP!")
+        print("="*60 + "\n")
+        
+        # Set the kill event to signal all threads to stop
         kill_event.set()
-        status_queue.put({"status": "killed", "message": "Emergency stop activated"})
+        
+        # Update status queue with stop message for UI
+        try:
+            status_queue.put({
+                "status": "killed",
+                "message": "Emergency stop activated by kill switch"
+            })
+        except Exception as e:
+            print(f"⚠️ Error updating status queue: {e}")
+        
+        print("✅ Kill event set - Agent will stop gracefully")
 
 
 def start_kill_switch():
     """Start the global kill switch listener.
     
     Returns:
-        KillSwitch: Active kill switch instance
+        KillSwitch: Active kill switch instance or None if failed
     """
-    # TODO: Implement kill switch initialization
-    # 1. Create KillSwitch instance
-    # 2. Start the listener
-    # 3. Return instance for later cleanup
-    pass
+    try:
+        # Create KillSwitch instance
+        kill_switch = KillSwitch()
+        
+        # Start the listener
+        if kill_switch.start():
+            return kill_switch
+        else:
+            print("❌ Failed to start kill switch")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Error initializing kill switch: {e}")
+        return None
 
 
 def stop_kill_switch(kill_switch):
@@ -102,7 +157,12 @@ def stop_kill_switch(kill_switch):
     Args:
         kill_switch (KillSwitch): Kill switch instance to stop
     """
-    # TODO: Implement kill switch cleanup
-    pass
+    if kill_switch is None:
+        return
+    
+    try:
+        kill_switch.stop()
+    except Exception as e:
+        print(f"⚠️ Error during kill switch cleanup: {e}")
 
 # Made with Bob

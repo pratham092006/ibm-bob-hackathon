@@ -1,18 +1,18 @@
 """Glowing reticle that predicts next cursor movement.
 
 Dev 3 (Pratham) - UI & Demo
-TODO: Implement animated reticle
-- Draw glowing circle at predicted cursor position
-- Animate smooth movement to new positions
-- Add pulsing/breathing effect for visual appeal
-- Use different colors for different states (thinking, moving, clicking)
+Implements animated reticle with:
+- Glowing circle at predicted cursor position
+- Smooth movement animation to new positions
+- Pulsing/breathing effect for visual appeal
+- State-based colors (idle=blue, thinking=orange, moving=green, clicking=red)
 - Fade in/out transitions
-- Optimize rendering for smooth 60 FPS
-- Make size and style configurable
+- Optimized rendering for smooth 60 FPS
 """
 
-from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QPoint
-from PyQt6.QtGui import QPainter, QColor, QPen, QRadialGradient
+import math
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QPoint, Qt
+from PyQt6.QtGui import QPainter, QColor, QPen, QRadialGradient, QBrush
 from PyQt6.QtWidgets import QWidget
 
 
@@ -40,6 +40,8 @@ class Reticle:
         self.state = self.STATE_IDLE
         self.radius = 20
         self.pulse_phase = 0
+        self.visible = False
+        self.interpolation_speed = 0.15  # Smooth interpolation factor
         
     def draw(self, painter, current_time=0):
         """Draw the reticle.
@@ -48,15 +50,51 @@ class Reticle:
             painter (QPainter): Qt painter object
             current_time (float): Current time for animations
         """
-        # TODO: Implement reticle drawing
-        # 1. Set up painter with anti-aliasing
-        # 2. Calculate pulsing radius based on time
-        # 3. Create radial gradient for glow effect
-        # 4. Draw outer glow circle
-        # 5. Draw inner solid circle
-        # 6. Draw crosshair lines
-        # 7. Add state-specific effects
-        pass
+        if not self.visible:
+            return
+            
+        # Set up painter with anti-aliasing
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Calculate pulsing radius based on time (breathing effect)
+        pulse_amplitude = 3
+        pulse_speed = 2.0
+        pulsing_radius = self.radius + pulse_amplitude * math.sin(self.pulse_phase * pulse_speed)
+        
+        # Get current color based on state
+        color = self.get_color()
+        
+        # Draw outer glow circle (larger, more transparent)
+        draw_glowing_circle(painter, self.position, pulsing_radius + 10, color)
+        
+        # Draw middle glow circle
+        draw_glowing_circle(painter, self.position, pulsing_radius, color)
+        
+        # Draw inner solid circle
+        painter.setPen(QPen(color, 2))
+        painter.setBrush(QBrush(QColor(color.red(), color.green(), color.blue(), 50)))
+        painter.drawEllipse(
+            self.position.x() - int(pulsing_radius * 0.5),
+            self.position.y() - int(pulsing_radius * 0.5),
+            int(pulsing_radius),
+            int(pulsing_radius)
+        )
+        
+        # Draw crosshair lines
+        draw_crosshair(painter, self.position, int(pulsing_radius * 1.5), color)
+        
+        # Add state-specific effects
+        if self.state == self.STATE_CLICKING:
+            # Draw expanding ring for click effect
+            click_ring_radius = pulsing_radius + 5
+            painter.setPen(QPen(color, 3))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(
+                self.position.x() - click_ring_radius,
+                self.position.y() - click_ring_radius,
+                click_ring_radius * 2,
+                click_ring_radius * 2
+            )
     
     def set_position(self, x, y, animate=True):
         """Set the reticle position.
@@ -66,13 +104,10 @@ class Reticle:
             y (int): Y coordinate
             animate (bool): Whether to animate the movement
         """
-        # TODO: Implement position update
-        # 1. Set target position
-        # 2. If animate, smoothly interpolate to target
-        # 3. If not animate, jump immediately
         self.target_position = QPoint(x, y)
         if not animate:
             self.position = self.target_position
+        self.visible = True
     
     def set_state(self, state):
         """Set the reticle state.
@@ -80,10 +115,6 @@ class Reticle:
         Args:
             state (str): New state (idle, thinking, moving, clicking)
         """
-        # TODO: Implement state change
-        # 1. Validate state
-        # 2. Update internal state
-        # 3. Trigger visual update
         if state in self.COLORS:
             self.state = state
     
@@ -93,11 +124,24 @@ class Reticle:
         Args:
             delta_time (float): Time since last update in seconds
         """
-        # TODO: Implement animation update
-        # 1. Update pulse phase
-        # 2. Interpolate position towards target
-        # 3. Update any other animated properties
-        pass
+        # Update pulse phase for breathing animation
+        self.pulse_phase += delta_time
+        
+        # Interpolate position towards target (smooth movement)
+        if self.position != self.target_position:
+            dx = self.target_position.x() - self.position.x()
+            dy = self.target_position.y() - self.position.y()
+            
+            # Apply interpolation
+            new_x = self.position.x() + int(dx * self.interpolation_speed)
+            new_y = self.position.y() + int(dy * self.interpolation_speed)
+            
+            self.position = QPoint(new_x, new_y)
+            
+            # Snap to target if very close
+            distance = math.sqrt(dx*dx + dy*dy)
+            if distance < 2:
+                self.position = self.target_position
     
     def get_color(self):
         """Get the current color based on state.
@@ -105,8 +149,15 @@ class Reticle:
         Returns:
             QColor: Current reticle color
         """
-        # TODO: Implement color retrieval
         return self.COLORS.get(self.state, self.COLORS[self.STATE_IDLE])
+    
+    def hide(self):
+        """Hide the reticle."""
+        self.visible = False
+    
+    def show(self):
+        """Show the reticle."""
+        self.visible = True
 
 
 def draw_glowing_circle(painter, center, radius, color):
@@ -118,11 +169,26 @@ def draw_glowing_circle(painter, center, radius, color):
         radius (int): Circle radius
         color (QColor): Base color
     """
-    # TODO: Implement glowing circle drawing
-    # 1. Create radial gradient from center
-    # 2. Set gradient colors (transparent at edge, solid at center)
-    # 3. Draw circle with gradient brush
-    pass
+    # Create radial gradient from center
+    gradient = QRadialGradient(center, radius)
+    
+    # Set gradient colors (solid at center, transparent at edge)
+    center_color = QColor(color.red(), color.green(), color.blue(), color.alpha())
+    edge_color = QColor(color.red(), color.green(), color.blue(), 0)
+    
+    gradient.setColorAt(0, center_color)
+    gradient.setColorAt(0.5, QColor(color.red(), color.green(), color.blue(), int(color.alpha() * 0.6)))
+    gradient.setColorAt(1, edge_color)
+    
+    # Draw circle with gradient brush
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QBrush(gradient))
+    painter.drawEllipse(
+        center.x() - radius,
+        center.y() - radius,
+        radius * 2,
+        radius * 2
+    )
 
 
 def draw_crosshair(painter, center, size, color):
@@ -134,11 +200,30 @@ def draw_crosshair(painter, center, size, color):
         size (int): Crosshair size
         color (QColor): Line color
     """
-    # TODO: Implement crosshair drawing
-    # 1. Set pen with color
-    # 2. Draw horizontal line
-    # 3. Draw vertical line
-    # 4. Add small gap in center
-    pass
+    # Set pen with color
+    painter.setPen(QPen(color, 2))
+    
+    # Gap in center
+    gap = 8
+    
+    # Draw horizontal line (left and right segments)
+    painter.drawLine(
+        center.x() - size, center.y(),
+        center.x() - gap, center.y()
+    )
+    painter.drawLine(
+        center.x() + gap, center.y(),
+        center.x() + size, center.y()
+    )
+    
+    # Draw vertical line (top and bottom segments)
+    painter.drawLine(
+        center.x(), center.y() - size,
+        center.x(), center.y() - gap
+    )
+    painter.drawLine(
+        center.x(), center.y() + gap,
+        center.x(), center.y() + size
+    )
 
 # Made with Bob

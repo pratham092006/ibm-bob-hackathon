@@ -1,139 +1,327 @@
 """Windows API integration for window and application detection.
 
 Dev 2 (Ashish) - Executor & Safety
-TODO: Implement Windows API functionality
-- Get active window title and handle
-- Get active application name and process
-- Detect which application has focus
-- Get window position and dimensions
-- Enumerate all open windows
-- Bring specific window to foreground
-- Use pywin32 for Win32 API calls
-- Handle errors gracefully (non-Windows systems)
+
+This module provides Windows-specific functionality for detecting and interacting
+with application windows. It enables AXON to:
+- Detect which application is currently active
+- Get window information (title, process, position)
+- Enumerate all visible windows
+- Bring windows to foreground
+- Check window visibility
+
+All functions handle errors gracefully and return None/False on failure.
 """
 
 import sys
+import logging
+from typing import Optional, Dict, List, Any
 
-# Windows-specific imports
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Windows-specific imports with type stubs
 if sys.platform == 'win32':
-    import win32gui
-    import win32process
-    import psutil
+    try:
+        import win32gui  # type: ignore
+        import win32process  # type: ignore
+        import psutil
+    except ImportError as e:
+        logger.error(f"Failed to import Windows dependencies: {e}")
+        logger.error("Install with: pip install pywin32 psutil")
+        win32gui = None  # type: ignore
+        win32process = None  # type: ignore
+        psutil = None  # type: ignore
 else:
-    print("Warning: win_api.py is Windows-specific")
+    logger.warning("win_api.py is Windows-specific and will not function on this platform")
+    win32gui = None  # type: ignore
+    win32process = None  # type: ignore
+    psutil = None  # type: ignore
 
 
-def get_active_window():
+def get_active_window() -> Optional[Dict[str, Any]]:
     """Get information about the currently active window.
     
+    This is the CORE FUNCTION used by app_handlers.py to detect which
+    application is currently active for app-specific optimizations.
+    
     Returns:
-        dict: Window information
-            {
-                'handle': int (window handle),
-                'title': str (window title),
-                'app_name': str (application name),
-                'process_id': int,
-                'rect': tuple (left, top, right, bottom)
-            }
-        None if error or not on Windows
+        dict: Window information with keys:
+            - 'hwnd': int (window handle)
+            - 'title': str (window title)
+            - 'pid': int (process ID)
+            - 'process': str (process name, e.g., 'chrome.exe')
+        None: If error occurs or not on Windows
+    
+    Example:
+        >>> info = get_active_window()
+        >>> if info:
+        ...     print(f"Active app: {info['process']}")
+        ...     print(f"Window title: {info['title']}")
     """
-    # TODO: Implement active window detection
-    # 1. Check if on Windows
-    # 2. Use win32gui.GetForegroundWindow() to get window handle
-    # 3. Get window title with win32gui.GetWindowText()
-    # 4. Get process ID with win32process.GetWindowThreadProcessId()
-    # 5. Get process name with psutil
-    # 6. Get window rect with win32gui.GetWindowRect()
-    # 7. Return structured dict
-    pass
+    # Check if on Windows and imports are available
+    if sys.platform != 'win32' or not win32gui:
+        logger.error("get_active_window() only works on Windows")
+        return None
+    
+    try:
+        # Get the foreground window handle
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            logger.warning("No foreground window found")
+            return None
+        
+        # Get window title
+        title = win32gui.GetWindowText(hwnd) if win32gui else ""
+        
+        # Get process ID
+        if not win32process:
+            logger.error("win32process module not available")
+            return None
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        
+        # Get process name
+        if not psutil:
+            logger.error("psutil module not available")
+            process = "unknown"
+        else:
+            try:
+                process = psutil.Process(pid).name()
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                logger.warning(f"Could not get process name for PID {pid}: {e}")
+                process = "unknown"
+        
+        result = {
+            "hwnd": hwnd,
+            "title": title,
+            "pid": pid,
+            "process": process
+        }
+        
+        logger.debug(f"Active window: {process} - {title}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting active window: {e}")
+        return None
 
 
-def get_window_title(hwnd):
+def get_window_title(hwnd: int) -> str:
     """Get the title of a window by handle.
     
     Args:
         hwnd (int): Window handle
         
     Returns:
-        str: Window title or empty string
+        str: Window title or empty string if error
+    
+    Example:
+        >>> hwnd = 12345
+        >>> title = get_window_title(hwnd)
+        >>> print(title)
     """
-    # TODO: Implement window title retrieval
-    # Use win32gui.GetWindowText()
-    pass
+    if sys.platform != 'win32' or not win32gui:
+        return ""
+    
+    try:
+        if not win32gui:
+            return ""
+        title = win32gui.GetWindowText(hwnd)
+        return title
+    except Exception as e:
+        logger.error(f"Error getting window title for handle {hwnd}: {e}")
+        return ""
 
 
-def get_process_name(pid):
+def get_process_name(pid: int) -> Optional[str]:
     """Get the process name from process ID.
     
     Args:
         pid (int): Process ID
         
     Returns:
-        str: Process name or empty string
+        str: Process name (e.g., 'chrome.exe') or None if error
+    
+    Example:
+        >>> pid = 1234
+        >>> name = get_process_name(pid)
+        >>> print(name)  # 'notepad.exe'
     """
-    # TODO: Implement process name retrieval
-    # 1. Use psutil.Process(pid)
-    # 2. Get process name
-    # 3. Handle exceptions
-    pass
+    if sys.platform != 'win32' or not psutil:
+        return None
+    
+    try:
+        if not psutil:
+            return None
+        process = psutil.Process(pid)
+        return process.name()
+    except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+        logger.error(f"Error getting process name for PID {pid}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error getting process name for PID {pid}: {e}")
+        return None
 
 
-def list_all_windows():
+def list_all_windows() -> List[Dict[str, Any]]:
     """List all visible windows.
     
+    Useful for debugging and understanding what windows are currently open.
+    Only returns windows that are visible (not hidden or minimized to tray).
+    
     Returns:
-        list: List of window info dicts
+        list: List of dicts, each containing:
+            - 'hwnd': int (window handle)
+            - 'title': str (window title)
+            - 'pid': int (process ID)
+            - 'process': str (process name)
+        Empty list if error or not on Windows
+    
+    Example:
+        >>> windows = list_all_windows()
+        >>> for win in windows:
+        ...     print(f"{win['process']}: {win['title']}")
     """
-    # TODO: Implement window enumeration
-    # 1. Use win32gui.EnumWindows()
-    # 2. Filter for visible windows
-    # 3. Get info for each window
-    # 4. Return list
-    pass
+    if sys.platform != 'win32' or not win32gui:
+        logger.error("list_all_windows() only works on Windows")
+        return []
+    
+    windows = []
+    
+    def callback(hwnd, extra):
+        """Callback function for EnumWindows."""
+        try:
+            # Only include visible windows with titles
+            if win32gui and win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd) if win32gui else ""
+                if title:  # Skip windows without titles
+                    if win32process:
+                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        try:
+                            process = psutil.Process(pid).name() if psutil else "unknown"
+                        except:
+                            process = "unknown"
+                    else:
+                        pid = 0
+                        process = "unknown"
+                    
+                    windows.append({
+                        "hwnd": hwnd,
+                        "title": title,
+                        "pid": pid,
+                        "process": process
+                    })
+        except Exception as e:
+            logger.debug(f"Error processing window {hwnd}: {e}")
+        return True  # Continue enumeration
+    
+    try:
+        if not win32gui:
+            return []
+        win32gui.EnumWindows(callback, None)
+        logger.debug(f"Found {len(windows)} visible windows")
+        return windows
+    except Exception as e:
+        logger.error(f"Error enumerating windows: {e}")
+        return []
 
 
-def bring_window_to_front(hwnd):
+def bring_window_to_front(hwnd: int) -> bool:
     """Bring a window to the foreground.
     
+    Useful for future features where AXON might need to switch between
+    applications or bring a specific window to focus.
+    
     Args:
         hwnd (int): Window handle
         
     Returns:
-        bool: True if successful
+        bool: True if successful, False otherwise
+    
+    Example:
+        >>> hwnd = 12345
+        >>> if bring_window_to_front(hwnd):
+        ...     print("Window activated")
     """
-    # TODO: Implement window activation
-    # 1. Use win32gui.SetForegroundWindow()
-    # 2. Handle exceptions
-    pass
+    if sys.platform != 'win32' or not win32gui:
+        logger.error("bring_window_to_front() only works on Windows")
+        return False
+    
+    try:
+        if not win32gui:
+            return False
+        win32gui.SetForegroundWindow(hwnd)
+        logger.debug(f"Brought window {hwnd} to front")
+        return True
+    except Exception as e:
+        logger.error(f"Error bringing window {hwnd} to front: {e}")
+        return False
 
 
-def get_window_at_position(x, y):
+def get_window_at_position(x: int, y: int) -> Optional[int]:
     """Get the window at specific screen coordinates.
     
+    Useful for detecting which window is under the mouse cursor.
+    
     Args:
-        x (int): X coordinate
-        y (int): Y coordinate
+        x (int): X coordinate (screen coordinates)
+        y (int): Y coordinate (screen coordinates)
         
     Returns:
-        dict: Window info or None
+        int: Window handle (hwnd) or None if error
+    
+    Example:
+        >>> hwnd = get_window_at_position(100, 200)
+        >>> if hwnd:
+        ...     title = get_window_title(hwnd)
+        ...     print(f"Window at (100, 200): {title}")
     """
-    # TODO: Implement window detection at position
-    # 1. Use win32gui.WindowFromPoint()
-    # 2. Get window info
-    pass
+    if sys.platform != 'win32' or not win32gui:
+        logger.error("get_window_at_position() only works on Windows")
+        return None
+    
+    try:
+        if not win32gui:
+            return None
+        hwnd = win32gui.WindowFromPoint((x, y))
+        if hwnd:
+            logger.debug(f"Found window {hwnd} at position ({x}, {y})")
+            return hwnd
+        return None
+    except Exception as e:
+        logger.error(f"Error getting window at position ({x}, {y}): {e}")
+        return None
 
 
-def is_window_visible(hwnd):
+def is_window_visible(hwnd: int) -> bool:
     """Check if a window is visible.
+    
+    A window is considered visible if it's not hidden or minimized to tray.
+    This doesn't necessarily mean it's on top or in the foreground.
     
     Args:
         hwnd (int): Window handle
         
     Returns:
-        bool: True if visible
+        bool: True if visible, False otherwise
+    
+    Example:
+        >>> hwnd = 12345
+        >>> if is_window_visible(hwnd):
+        ...     print("Window is visible")
     """
-    # TODO: Implement visibility check
-    # Use win32gui.IsWindowVisible()
-    pass
+    if sys.platform != 'win32' or not win32gui:
+        logger.error("is_window_visible() only works on Windows")
+        return False
+    
+    try:
+        if not win32gui:
+            return False
+        visible = win32gui.IsWindowVisible(hwnd)
+        logger.debug(f"Window {hwnd} visible: {visible}")
+        return bool(visible)
+    except Exception as e:
+        logger.error(f"Error checking visibility for window {hwnd}: {e}")
+        return False
 
 # Made with Bob

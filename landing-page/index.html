@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AXON - Your AI Desktop Buddy! 🚀</title>
-    <meta name="description" content="Meet AXON - the friendliest AI agent that helps you automate boring desktop tasks with just your voice!">
+    <title>AXON - AI Desktop Automation</title>
+    <meta name="description" content="AXON is an intelligent AI agent that automates desktop tasks using computer vision and natural language processing.">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Floating Shapes Background -->
+    <!-- Floating Blob Shapes Background -->
     <div class="floating-shapes">
         <div class="shape shape-1"></div>
         <div class="shape shape-2"></div>
@@ -27,15 +27,15 @@
             <div class="nav-logo">
                 <div class="logo-icon">
                     <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="50" cy="50" r="45" fill="url(#gradient1)"/>
-                        <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="50" cy="75" r="5" fill="white"/>
                         <defs>
-                            <linearGradient id="gradient1" x1="0" y1="0" x2="100" y2="100">
-                                <stop offset="0%" stop-color="#9333EA"/>
-                                <stop offset="100%" stop-color="#F59E0B"/>
+                            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
                             </linearGradient>
                         </defs>
+                        <circle cx="50" cy="50" r="45" fill="url(#logoGradient)"/>
+                        <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="50" cy="75" r="5" fill="white"/>
                     </svg>
                 </div>
                 <span class="logo-text">AXON</span>
@@ -65,78 +65,79 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <div class="hero-badge">
-                <span class="badge-icon">🏆</span>
-                <span>IBM Bob Hackathon Winner</span>
-            </div>
-            <h1 class="hero-title">
-                Meet Your New
-                <span class="gradient-text">AI Desktop Buddy!</span>
-            </h1>
-            <p class="hero-subtitle">
-                AXON is like having a super-smart friend who can control your computer with just your voice! 
-                Say goodbye to boring, repetitive tasks and hello to automation magic! ✨
-            </p>
-            <div class="hero-buttons">
-                <a href="#download" class="btn btn-primary">
-                    <span class="btn-icon">⬇️</span>
-                    Download AXON
-                    <span class="btn-shine"></span>
-                </a>
-                <a href="#how-it-works" class="btn btn-secondary">
-                    <span class="btn-icon">🎬</span>
-                    Watch Demo
-                </a>
-            </div>
-            <div class="hero-stats">
-                <div class="stat">
-                    <div class="stat-number">100%</div>
-                    <div class="stat-label">Free & Open Source</div>
+            <div>
+                <div class="hero-badge">
+                    <span class="badge-icon">🏆</span>
+                    <span>IBM Bob Hackathon Winner</span>
                 </div>
-                <div class="stat">
-                    <div class="stat-number">10+</div>
-                    <div class="stat-label">Smart Actions</div>
+                <h1 class="hero-title">
+                    Automate Your Desktop
+                    <span class="gradient-text">With AI Intelligence</span>
+                </h1>
+                <p class="hero-subtitle">
+                    AXON is an intelligent AI agent that uses computer vision and natural language processing to automate complex desktop tasks. Just describe what you want, and watch it happen.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#download" class="btn btn-primary">
+                        <span class="btn-icon">⬇️</span>
+                        Download AXON
+                        <span class="btn-shine"></span>
+                    </a>
+                    <a href="#how-it-works" class="btn btn-secondary">
+                        <span class="btn-icon">▶️</span>
+                        See How It Works
+                    </a>
                 </div>
-                <div class="stat">
-                    <div class="stat-number">∞</div>
-                    <div class="stat-label">Possibilities</div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-number">100%</div>
+                        <div class="stat-label">Open Source</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">10+</div>
+                        <div class="stat-label">Actions</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">Setup Time</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="hero-visual">
-            <div class="visual-container">
-                <div class="visual-circle circle-1"></div>
-                <div class="visual-circle circle-2"></div>
-                <div class="visual-circle circle-3"></div>
-                <div class="robot-illustration">
-                    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Robot Head -->
-                        <rect x="60" y="40" width="80" height="70" rx="15" fill="url(#robotGradient)"/>
-                        <!-- Eyes -->
-                        <circle cx="80" cy="70" r="8" fill="white"/>
-                        <circle cx="120" cy="70" r="8" fill="white"/>
-                        <circle cx="82" cy="72" r="4" fill="#9333EA"/>
-                        <circle cx="122" cy="72" r="4" fill="#9333EA"/>
-                        <!-- Smile -->
-                        <path d="M 80 90 Q 100 100 120 90" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
-                        <!-- Antenna -->
-                        <line x1="100" y1="40" x2="100" y2="20" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
-                        <circle cx="100" cy="15" r="6" fill="#F59E0B"/>
-                        <!-- Body -->
-                        <rect x="70" y="110" width="60" height="50" rx="10" fill="url(#robotGradient)"/>
-                        <!-- Arms -->
-                        <rect x="40" y="120" width="30" height="10" rx="5" fill="#9333EA"/>
-                        <rect x="130" y="120" width="30" height="10" rx="5" fill="#9333EA"/>
-                        <!-- Legs -->
-                        <rect x="75" y="160" width="15" height="30" rx="7" fill="#F59E0B"/>
-                        <rect x="110" y="160" width="15" height="30" rx="7" fill="#F59E0B"/>
-                        <defs>
-                            <linearGradient id="robotGradient" x1="0" y1="0" x2="100" y2="100">
-                                <stop offset="0%" stop-color="#9333EA"/>
-                                <stop offset="100%" stop-color="#A855F7"/>
-                            </linearGradient>
-                        </defs>
-                    </svg>
+            <div class="hero-visual">
+                <div class="visual-container">
+                    <div class="visual-circle circle-1"></div>
+                    <div class="visual-circle circle-2"></div>
+                    <div class="visual-circle circle-3"></div>
+                    <div class="robot-illustration">
+                        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="robotGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+                            <!-- Robot Head -->
+                            <rect x="60" y="40" width="80" height="70" rx="15" fill="url(#robotGradient)"/>
+                            <!-- Eyes -->
+                            <circle cx="80" cy="70" r="8" fill="white"/>
+                            <circle cx="120" cy="70" r="8" fill="white"/>
+                            <circle cx="82" cy="72" r="4" fill="#667eea"/>
+                            <circle cx="122" cy="72" r="4" fill="#667eea"/>
+                            <!-- Smile -->
+                            <path d="M 80 90 Q 100 100 120 90" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
+                            <!-- Antenna -->
+                            <line x1="100" y1="40" x2="100" y2="20" stroke="#764ba2" stroke-width="4" stroke-linecap="round"/>
+                            <circle cx="100" cy="15" r="6" fill="#764ba2"/>
+                            <!-- Body -->
+                            <rect x="70" y="110" width="60" height="50" rx="10" fill="url(#robotGradient)"/>
+                            <!-- Arms -->
+                            <rect x="40" y="120" width="30" height="10" rx="5" fill="#667eea"/>
+                            <rect x="130" y="120" width="30" height="10" rx="5" fill="#667eea"/>
+                            <!-- Legs -->
+                            <rect x="75" y="160" width="15" height="30" rx="7" fill="#764ba2"/>
+                            <rect x="110" y="160" width="15" height="30" rx="7" fill="#764ba2"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
         </div>
@@ -146,54 +147,54 @@
     <section id="features" class="features">
         <div class="section-header">
             <h2 class="section-title">
-                <span class="title-icon">⚡</span>
-                Superpowers Included!
+                <span class="title-icon">✨</span>
+                Powerful Features
             </h2>
             <p class="section-subtitle">
-                AXON comes packed with amazing abilities to make your life easier
+                Everything you need to automate your desktop workflows with AI-powered precision
             </p>
         </div>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">🎤</div>
-                <h3 class="feature-title">Voice Control</h3>
+                <h3 class="feature-title">Natural Language Control</h3>
                 <p class="feature-description">
-                    Just speak naturally! AXON understands what you want and does it for you.
+                    Describe tasks in plain English. AXON understands context and executes complex workflows automatically.
                 </p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">👀</div>
+                <div class="feature-icon">👁️</div>
                 <h3 class="feature-title">Computer Vision</h3>
                 <p class="feature-description">
-                    AXON can see your screen and understand what's happening, just like you do!
+                    Advanced visual recognition to identify UI elements, read text, and navigate applications intelligently.
                 </p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">🤖</div>
-                <h3 class="feature-title">Smart AI Brain</h3>
+                <div class="feature-icon">🧠</div>
+                <h3 class="feature-title">AI-Powered Intelligence</h3>
                 <p class="feature-description">
-                    Powered by Google Gemini & Ollama - the smartest AI models around!
+                    Powered by Google Gemini and Ollama for smart decision-making and adaptive automation.
                 </p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🌐</div>
                 <h3 class="feature-title">Web Automation</h3>
                 <p class="feature-description">
-                    Browse websites, fill forms, search Google - all hands-free!
+                    Automate browser tasks, fill forms, extract data, and navigate websites with precision.
                 </p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">📝</div>
-                <h3 class="feature-title">Document Magic</h3>
+                <div class="feature-icon">📄</div>
+                <h3 class="feature-title">Document Processing</h3>
                 <p class="feature-description">
-                    Create, edit, and manage documents without lifting a finger.
+                    Create, edit, and manage documents across multiple applications seamlessly.
                 </p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">🎯</div>
-                <h3 class="feature-title">Precision Control</h3>
+                <div class="feature-icon">⚡</div>
+                <h3 class="feature-title">Lightning Fast</h3>
                 <p class="feature-description">
-                    Click, type, scroll - AXON handles it all with pixel-perfect accuracy!
+                    Optimized performance with real-time execution and minimal resource usage.
                 </p>
             </div>
         </div>
@@ -204,10 +205,10 @@
         <div class="section-header">
             <h2 class="section-title">
                 <span class="title-icon">🎯</span>
-                How Does It Work?
+                How It Works
             </h2>
             <p class="section-subtitle">
-                Getting started with AXON is super easy! Just 3 simple steps:
+                Get started with AXON in three simple steps
             </p>
         </div>
         <div class="steps-container">
@@ -216,37 +217,35 @@
                 <div class="step-content">
                     <h3 class="step-title">Download & Install</h3>
                     <p class="step-description">
-                        Grab the AXON.exe file and run it. No complicated setup needed!
+                        Download the executable and run it. No complex setup or configuration required.
                     </p>
                 </div>
                 <div class="step-illustration">
                     <div class="illustration-icon">💾</div>
                 </div>
             </div>
-            <div class="step-connector"></div>
             <div class="step">
                 <div class="step-number">2</div>
                 <div class="step-content">
-                    <h3 class="step-title">Tell AXON What To Do</h3>
+                    <h3 class="step-title">Describe Your Task</h3>
                     <p class="step-description">
-                        Use your voice or type your command. Be as natural as you want!
+                        Tell AXON what you want to accomplish using natural language or voice commands.
                     </p>
                 </div>
                 <div class="step-illustration">
-                    <div class="illustration-icon">🗣️</div>
+                    <div class="illustration-icon">💬</div>
                 </div>
             </div>
-            <div class="step-connector"></div>
             <div class="step">
                 <div class="step-number">3</div>
                 <div class="step-content">
-                    <h3 class="step-title">Watch The Magic Happen!</h3>
+                    <h3 class="step-title">Watch It Execute</h3>
                     <p class="step-description">
-                        Sit back and relax while AXON does all the work for you!
+                        AXON analyzes your screen, plans the steps, and executes the task automatically.
                     </p>
                 </div>
                 <div class="step-illustration">
-                    <div class="illustration-icon">✨</div>
+                    <div class="illustration-icon">✅</div>
                 </div>
             </div>
         </div>
@@ -258,16 +257,16 @@
             <div class="download-content">
                 <h2 class="download-title">
                     Ready to Get Started?
-                    <span class="gradient-text">Download AXON Now!</span>
+                    <span class="gradient-text">Download AXON Now</span>
                 </h2>
                 <p class="download-subtitle">
-                    100% Free • Open Source • No Sign-up Required
+                    Free and open source. No registration required.
                 </p>
                 <div class="download-buttons">
                     <a href="https://github.com/pratham092006/ibm-bob-hackathon/releases/latest/download/AXON.exe" class="btn btn-download">
                         <span class="btn-icon">⬇️</span>
-                        Download AXON.exe
-                        <span class="download-size">~150 MB</span>
+                        Download for Windows
+                        <span class="download-size">362 MB</span>
                         <span class="btn-shine"></span>
                     </a>
                     <a href="https://github.com/pratham092006/ibm-bob-hackathon" class="btn btn-github" target="_blank">
@@ -280,11 +279,12 @@
                     </a>
                 </div>
                 <div class="system-requirements">
-                    <h4>System Requirements:</h4>
+                    <h4>System Requirements</h4>
                     <ul>
-                        <li>✅ Windows 10/11</li>
+                        <li>✅ Windows 10 or Windows 11</li>
                         <li>✅ 4GB RAM (8GB recommended)</li>
                         <li>✅ Internet connection for AI features</li>
+                        <li>✅ 500 MB free disk space</li>
                     </ul>
                 </div>
             </div>
@@ -302,7 +302,7 @@
                         <div class="file-icon">📦</div>
                         <div class="file-info">
                             <div class="file-name">AXON.exe</div>
-                            <div class="file-size">~150 MB</div>
+                            <div class="file-size">362 MB</div>
                         </div>
                         <div class="download-progress">
                             <div class="progress-bar"></div>
@@ -318,56 +318,56 @@
         <div class="section-header">
             <h2 class="section-title">
                 <span class="title-icon">❓</span>
-                Got Questions?
+                Frequently Asked Questions
             </h2>
             <p class="section-subtitle">
-                Here are answers to the most common questions about AXON
+                Everything you need to know about AXON
             </p>
         </div>
         <div class="faq-container">
             <div class="faq-item">
                 <button class="faq-question">
-                    <span>Is AXON really free?</span>
+                    <span>Is AXON completely free?</span>
                     <span class="faq-icon">+</span>
                 </button>
                 <div class="faq-answer">
-                    <p>Yes! AXON is 100% free and open source. You can use it, modify it, and share it however you like!</p>
+                    <p>Yes, AXON is 100% free and open source under the MIT License. You can use it for personal or commercial projects without any restrictions.</p>
                 </div>
             </div>
             <div class="faq-item">
                 <button class="faq-question">
-                    <span>Do I need to be a programmer to use AXON?</span>
+                    <span>Do I need programming knowledge to use AXON?</span>
                     <span class="faq-icon">+</span>
                 </button>
                 <div class="faq-answer">
-                    <p>Not at all! AXON is designed for everyone. Just speak naturally or type what you want, and AXON will understand!</p>
+                    <p>No programming knowledge required. AXON understands natural language commands, so you can simply describe what you want to accomplish in plain English.</p>
                 </div>
             </div>
             <div class="faq-item">
                 <button class="faq-question">
-                    <span>Is my data safe with AXON?</span>
+                    <span>Is my data secure?</span>
                     <span class="faq-icon">+</span>
                 </button>
                 <div class="faq-answer">
-                    <p>Absolutely! AXON runs locally on your computer. Your data never leaves your machine unless you explicitly use cloud AI features.</p>
+                    <p>AXON runs locally on your computer. Your data stays on your machine unless you explicitly use cloud-based AI features like Google Gemini.</p>
                 </div>
             </div>
             <div class="faq-item">
                 <button class="faq-question">
-                    <span>What can AXON automate?</span>
+                    <span>What tasks can AXON automate?</span>
                     <span class="faq-icon">+</span>
                 </button>
                 <div class="faq-answer">
-                    <p>Almost anything! Web browsing, document editing, file management, form filling, and much more. If you can do it manually, AXON can probably automate it!</p>
+                    <p>AXON can automate web browsing, document editing, file management, form filling, data extraction, and much more. If you can do it manually, AXON can likely automate it.</p>
                 </div>
             </div>
             <div class="faq-item">
                 <button class="faq-question">
-                    <span>How do I get help if I'm stuck?</span>
+                    <span>How do I get support?</span>
                     <span class="faq-icon">+</span>
                 </button>
                 <div class="faq-answer">
-                    <p>Check out our GitHub repository for documentation, or open an issue if you need help. The community is super friendly!</p>
+                    <p>Visit our GitHub repository for documentation, or open an issue if you encounter problems. The community is active and ready to help.</p>
                 </div>
             </div>
         </div>
@@ -380,21 +380,21 @@
                 <div class="footer-logo">
                     <div class="logo-icon">
                         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="45" fill="url(#gradient2)"/>
-                            <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="50" cy="75" r="5" fill="white"/>
                             <defs>
-                                <linearGradient id="gradient2" x1="0" y1="0" x2="100" y2="100">
-                                    <stop offset="0%" stop-color="#9333EA"/>
-                                    <stop offset="100%" stop-color="#F59E0B"/>
+                                <linearGradient id="footerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
                                 </linearGradient>
                             </defs>
+                            <circle cx="50" cy="50" r="45" fill="url(#footerGradient)"/>
+                            <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="50" cy="75" r="5" fill="white"/>
                         </svg>
                     </div>
                     <span class="logo-text">AXON</span>
                 </div>
                 <p class="footer-description">
-                    Your friendly AI desktop automation buddy, built with ❤️ for the IBM Bob Hackathon
+                    AI-powered desktop automation for everyone. Built with passion for the IBM Bob Hackathon.
                 </p>
             </div>
             <div class="footer-section">
@@ -419,7 +419,7 @@
                 <h4 class="footer-title">Connect</h4>
                 <div class="social-links">
                     <a href="https://github.com/pratham092006" class="social-link" target="_blank" aria-label="GitHub">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                         </svg>
                     </a>
@@ -427,7 +427,7 @@
             </div>
         </div>
         <div class="footer-bottom">
-            <p>&copy; 2026 AXON. Built for IBM Bob Hackathon. Open Source & Free Forever! 🚀</p>
+            <p>&copy; 2026 AXON. Built for IBM Bob Hackathon. Open Source & Free Forever.</p>
         </div>
     </footer>
 

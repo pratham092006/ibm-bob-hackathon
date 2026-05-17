@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": null,
+  "outputDirectory": "landing-page",
+  "installCommand": null,
   "public": true,
   "cleanUrls": true,
   "trailingSlash": false

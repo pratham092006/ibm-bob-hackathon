@@ -9,6 +9,8 @@ An agentic cursor that sees your screen live, understands your goal, and moves t
 - ⚡ **Dual AI Models** - Switch between Gemini 2.5 Flash (fast) and Pro (accurate)
 - 👁️ **Real-time Visual Feedback** - Color-coded states (blue=idle, orange=thinking, green=moving, red=clicking)
 - 🔒 **Safe & Controllable** - Click-through overlay, always see your desktop
+- ⌨️ **Global Hotkey (Alt+G)** - Quick task dialog or context-aware help from anywhere
+- 🤖 **AI Context Help** - Select any text, press Alt+G, get instant AI explanations
 
 ## 🚀 Quick Start
 
@@ -27,7 +29,9 @@ python main.py
 
 ## ⌨️ Controls
 
+- **Alt+G** - Open task dialog (no text selected) OR get AI help (text selected)
 - **F12** - Kill switch (emergency stop)
+- **Esc** - Close answer overlay
 - **System Tray** - Right-click for menu
 - **Task Dialog** - Enter your task when prompted
 
@@ -46,6 +50,7 @@ The reticle cursor appears **alongside your normal cursor** with color-coded sta
 ### Getting Started
 - [HOW_TO_RUN.md](HOW_TO_RUN.md) - Detailed setup and usage guide
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Quick reference for developers
+- [GLOBAL_HOTKEY_GUIDE.md](GLOBAL_HOTKEY_GUIDE.md) - **NEW!** Alt+G hotkey and context help
 
 ### Architecture & Design
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Complete system architecture and component details
@@ -63,9 +68,10 @@ The reticle cursor appears **alongside your normal cursor** with color-coded sta
 ## 🧪 Testing
 
 ```bash
-python test_gemini.py      # Test Gemini API connection
-python test_kill_switch.py # Test emergency stop
-python test_actions.py     # Test action execution
+python test_gemini.py         # Test Gemini API connection
+python test_kill_switch.py    # Test emergency stop
+python test_actions.py        # Test action execution
+python test_global_hotkey.py  # Test Alt+G hotkey feature
 ```
 
 ## 🏆 Hackathon Winner Features

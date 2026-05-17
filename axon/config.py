@@ -64,10 +64,10 @@ CLAUDE_MODELS = {
 CURRENT_MODEL = "flash"  # Change to "pro" for Gemini 2.5 Pro
 
 # Frame capture settings
-# Reduced from 1920x1080 to 1600x900 for better speed while maintaining quality
-# Still much better than original 1280x720
-FRAME_WIDTH = 1600
-FRAME_HEIGHT = 900
+# Capture at native screen resolution for best quality
+# OCR will run on full resolution images for accurate text detection
+FRAME_WIDTH = 1920
+FRAME_HEIGHT = 1080
 JPEG_QUALITY = 85  # Reduced from 90 for faster encoding
 
 # EasyOCR GPU settings

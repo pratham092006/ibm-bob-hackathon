@@ -3,6 +3,7 @@
 Dev 2 (Ashish) - Executor & Safety
 Implements all action execution functions for the AXON system.
 Receives action dictionaries from Computer Use API and executes them using pyautogui.
+Includes browser automation via Playwright.
 """
 
 import pyautogui
@@ -14,10 +15,40 @@ from datetime import datetime
 from pathlib import Path
 import sys
 import os
+import subprocess
+
+# Try to import pyperclip for reliable clipboard-based typing
+try:
+    import pyperclip
+    _HAS_PYPERCLIP = True
+except ImportError:
+    _HAS_PYPERCLIP = False
+    print("[ACTIONS] pyperclip not installed - falling back to pyautogui.write()")
+    print("[ACTIONS] Install it with: pip install pyperclip")
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import kill_event, status_queue
+
+# Import browser automation functions
+try:
+    from executor.browser_actions import (
+        browser_navigate,
+        browser_click,
+        browser_type,
+        browser_press_key,
+        browser_wait,
+        browser_get_text,
+        browser_screenshot,
+        browser_close
+    )
+    BROWSER_ACTIONS_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("Browser automation module loaded successfully")
+except ImportError as e:
+    BROWSER_ACTIONS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Browser automation not available: {e}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -278,6 +309,65 @@ def _open_app_via_search(app_name):
         return False
 
 
+def _print_document(document_name=None):
+    """Execute the print document automation script.
+    
+    This function runs the print_document_automation.py script to automatically
+    print a document. If a document name is provided, it will be used; otherwise,
+    the default document (KheloParty_Full_Plan.docx) will be printed.
+    
+    Args:
+        document_name (str, optional): Name of the document to print
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import subprocess
+        
+        # Get the path to the print automation script
+        script_dir = Path(__file__).parent.parent
+        script_path = script_dir / "print_document_automation.py"
+        
+        if not script_path.exists():
+            logger.error(f"Print automation script not found at: {script_path}")
+            return False
+        
+        logger.info(f"Executing print document automation script...")
+        if document_name:
+            logger.info(f"Document name: {document_name}")
+        
+        # Run the script as a subprocess
+        # Use pythonw to avoid console window popup on Windows
+        python_exe = sys.executable.replace("python.exe", "pythonw.exe") if "python.exe" in sys.executable else sys.executable
+        
+        result = subprocess.run(
+            [python_exe, str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=60  # 60 second timeout
+        )
+        
+        if result.returncode == 0:
+            logger.info("Print document automation completed successfully")
+            return True
+        elif result.returncode == 2:
+            logger.warning("Print automation aborted by user (FAILSAFE)")
+            return False
+        else:
+            logger.error(f"Print automation failed with exit code {result.returncode}")
+            if result.stderr:
+                logger.error(f"Error output: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error("Print automation timed out after 60 seconds")
+        return False
+    except Exception as e:
+        logger.error(f"Error executing print automation: {e}")
+        return False
+
+
 def execute_action(action_dict):
     """Execute an action based on Computer Use API response.
     
@@ -418,6 +508,74 @@ def execute_action(action_dict):
             else:
                 success = scroll(coordinate[0], coordinate[1], direction, amount)
         
+        elif action_type == "print_document":
+            # Extract document name if provided
+            document_name = action_dict.get('text', '')
+            success = _print_document(document_name if document_name else None)
+        
+        # Browser automation actions
+        elif action_type == "browser_navigate" and BROWSER_ACTIONS_AVAILABLE:
+            url = action_dict.get('url', '')
+            if not url:
+                logger.error("No URL specified for browser_navigate")
+                success = False
+            else:
+                success = browser_navigate(url)
+        
+        elif action_type == "browser_click" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector:
+                logger.error("No selector specified for browser_click")
+                success = False
+            else:
+                success = browser_click(selector, timeout)
+        
+        elif action_type == "browser_type" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            text = action_dict.get('text', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector or not text:
+                logger.error("Missing selector or text for browser_type")
+                success = False
+            else:
+                success = browser_type(selector, text, timeout)
+        
+        elif action_type == "browser_press_key" and BROWSER_ACTIONS_AVAILABLE:
+            key = action_dict.get('key', '')
+            if not key:
+                logger.error("No key specified for browser_press_key")
+                success = False
+            else:
+                success = browser_press_key(key)
+        
+        elif action_type == "browser_wait" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector:
+                logger.error("No selector specified for browser_wait")
+                success = False
+            else:
+                success = browser_wait(selector, timeout)
+        
+        elif action_type == "browser_get_text" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            if not selector:
+                logger.error("No selector specified for browser_get_text")
+                success = False
+            else:
+                text = browser_get_text(selector)
+                success = text is not None
+                if success:
+                    logger.info(f"Extracted text: {text[:100]}...")
+        
+        elif action_type == "browser_screenshot" and BROWSER_ACTIONS_AVAILABLE:
+            path = action_dict.get('path', 'axon/bob-reports/browser_screenshot.png')
+            success = browser_screenshot(path)
+        
+        elif action_type == "browser_close" and BROWSER_ACTIONS_AVAILABLE:
+            success = browser_close()
+        
         elif action_type == "done":
             logger.info("Task complete - setting kill_event")
             kill_event.set()
@@ -509,19 +667,45 @@ def click(x, y, button='left', clicks=1):
 
 
 def type_text(text, interval=0.03):
-    """Type text with realistic timing.
+    """Type text using clipboard paste for reliability.
+    
+    Uses pyperclip + ctrl+v instead of character-by-character simulation.
+    This is faster, handles Unicode/emoji, and never drops characters.
+    Falls back to pyautogui.write() if pyperclip is not available.
     
     Args:
         text (str): Text to type
-        interval (float): Delay between keystrokes in seconds (default 0.03)
+        interval (float): Delay between keystrokes (only used in fallback)
         
     Returns:
         bool: True if successful, False otherwise
     """
     try:
-        # Use pyautogui.write for better special character handling
-        pyautogui.write(text, interval=interval)
-        logger.info(f"Typed text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        if _HAS_PYPERCLIP:
+            # Save old clipboard content
+            try:
+                old_clipboard = pyperclip.paste()
+            except Exception:
+                old_clipboard = ""
+            
+            # Set our text to clipboard and paste
+            pyperclip.copy(text)
+            time.sleep(0.05)  # Small wait for clipboard to update
+            pyautogui.hotkey('ctrl', 'v')
+            time.sleep(0.1)  # Wait for paste to complete
+            
+            # Restore old clipboard content
+            try:
+                pyperclip.copy(old_clipboard)
+            except Exception:
+                pass
+            
+            logger.info(f"Typed via clipboard: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        else:
+            # Fallback: character-by-character (may drop chars on fast systems)
+            pyautogui.write(text, interval=interval)
+            logger.info(f"Typed via write: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        
         return True
     
     except Exception as e:

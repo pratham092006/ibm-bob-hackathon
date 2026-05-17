@@ -13,6 +13,7 @@ TODO: Implement main agent loop
 
 import time
 import os
+import hashlib
 import cv2
 import numpy as np
 from config import kill_event, status_queue, ui_queue, task_queue, MAX_LOOP_DELAY, DEBUG_MODE, FAST_MODE
@@ -22,20 +23,25 @@ from executor.actions import execute_action
 
 
 def _is_simple_task(task):
-    """Check if task is simple enough to skip OCR.
-    
-    Simple tasks like "Open Chrome" don't need OCR since we use
-    the atomic open_app action.
-    
-    Args:
-        task (str): Task description
-        
-    Returns:
-        bool: True if task is simple (skip OCR)
-    """
+    """Check if task is simple enough to skip OCR."""
     simple_keywords = ['open', 'launch', 'start', 'close', 'run']
     task_lower = task.lower()
     return any(keyword in task_lower for keyword in simple_keywords)
+
+
+def _is_messaging_task(task):
+    """Check if task involves sending a message (needs Enter after typing)."""
+    messaging_keywords = ['message', 'msg', 'send', 'chat', 'text', 'say', 'tell', 'write to', 'dm']
+    task_lower = task.lower()
+    return any(kw in task_lower for kw in messaging_keywords)
+
+
+def _image_hash(image_bytes):
+    """Quick perceptual hash of screenshot bytes for change detection."""
+    try:
+        return hashlib.md5(image_bytes[:4096]).hexdigest()  # Fast partial hash
+    except Exception:
+        return ""
 
 
 def _broadcast_status(status_dict):
@@ -132,20 +138,51 @@ def _save_debug_screenshot(screen_image, action_dict, action_count):
 
 
 def run_agent_loop(task_description):
-    """Main agent loop that runs until task completion or kill signal.
-    
-    Args:
-        task_description (str): User's goal/task to accomplish
-    """
+    """Main agent loop that runs until task completion or kill signal."""
     print(f"[AGENT LOOP] Starting for task: {task_description}")
     conversation_history = []
     action_count = 0
+    prev_screen_hash = ""
+    last_action_was_type = False
+    is_messaging = _is_messaging_task(task_description)
     
     # Clear kill_event at start
     kill_event.clear()
     print("[AGENT LOOP] Kill event cleared")
     
-    # Create debug directory if DEBUG_MODE is enabled
+    # ----------------------------------------------------------------
+    # FAST PATH: Try app-specific keyboard handler FIRST
+    # This bypasses screenshot + LLM + coordinate for known task patterns.
+    # e.g. "message Pratham Hii on Discord" -> Ctrl+K -> type -> Enter
+    # ----------------------------------------------------------------
+    try:
+        from executor.app_handlers import parse_task_intent, execute_intent
+        intent = parse_task_intent(task_description)
+        if intent:
+            print(f"[AGENT LOOP] Fast-path intent matched: {intent}")
+            _broadcast_status({
+                "type": "task_start",
+                "task": task_description,
+                "message": f"Using direct handler for {intent.get('app', '')}..."
+            })
+            success = execute_intent(intent)
+            if success:
+                print("[AGENT LOOP] Fast-path handler succeeded!")
+                _broadcast_status({
+                    "type": "task_complete",
+                    "message": "Task completed!",
+                    "task": task_description,
+                    "action_count": 1
+                })
+                kill_event.set()
+                return
+            else:
+                print("[AGENT LOOP] Fast-path handler failed, falling back to vision loop...")
+    except Exception as e:
+        print(f"[AGENT LOOP] Fast-path error (continuing to vision loop): {e}")
+    # ----------------------------------------------------------------
+    
+    # Create debug directory if needed
     if DEBUG_MODE:
         debug_dir = os.path.join('bob-reports', 'debug_screenshots')
         os.makedirs(debug_dir, exist_ok=True)
@@ -183,11 +220,29 @@ def run_agent_loop(task_description):
                 })
                 break
             
+            # Detect significant screen state change
+            current_hash = _image_hash(screen_image)
+            screen_changed = (prev_screen_hash != "" and current_hash != prev_screen_hash)
+            prev_screen_hash = current_hash
+            
             # Call LLM with screen and task
-            print("[AGENT LOOP] Calling Gemini API...")
+            print("[AGENT LOOP] Calling LLM...")
             start_time = time.time()
+            
+            # Build extra context hints for the model
+            extra_context = ""
+            if screen_changed:
+                extra_context += "\n[SYSTEM NOTE] The screen has changed since your last action. Re-evaluate what you see now — do NOT repeat the previous step.\n"
+                print("[AGENT LOOP] Screen change detected — injecting context hint")
+            if last_action_was_type and is_messaging:
+                extra_context += "\n[SYSTEM NOTE] You just typed the message. You MUST now press Enter to SEND it. Next action MUST be: {\"action\": \"key\", \"text\": \"enter\", \"reasoning\": \"sending message\", \"confidence\": 1.0}\n"
+                print("[AGENT LOOP] Post-type Enter enforcement active")
+            
+            # Append extra context to task description for this call only
+            effective_task = task_description + extra_context
+            
             try:
-                action_dict = call_llm(screen_image, task_description, conversation_history)
+                action_dict = call_llm(screen_image, effective_task, conversation_history)
                 response_time = time.time() - start_time
                 print(f"[AGENT LOOP] API response received in {response_time:.2f}s")
             except Exception as e:
@@ -271,6 +326,9 @@ def run_agent_loop(task_description):
             print(f"[AGENT LOOP] Executing action: {action_type}")
             success = execute_action(action_dict)
             action_count += 1
+            
+            # Track whether last action was 'type' (for Enter enforcement)
+            last_action_was_type = (action_type == 'type' and success)
             
             # Determine outcome for progress tracking
             if not success:

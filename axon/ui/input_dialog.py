@@ -1,114 +1,31 @@
-"""Floating task input dialog with voice toggle.
+"""Floating task input dialog.
 
 Dev 3 (Pratham) - UI & Demo
 Implements task input dialog with:
 - Floating dialog window for task input
 - Text input field for typing tasks
-- Voice input toggle button
-- Integration with faster-whisper for voice transcription
-- Recording indicator when voice is active
-- Real-time transcribed text display
 - Submit button to start agent
 - Draggable window
 - Modern UI design
 """
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
-                              QLineEdit, QPushButton, QLabel, QTextEdit, QComboBox)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
-from PyQt6.QtGui import QIcon, QFont
-import threading
+                              QLineEdit, QPushButton, QLabel, QComboBox)
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint
+from PyQt6.QtGui import QFont
 import sys
 import os
 
 # Import LLM functions for model switching
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
-    from core.llm import switch_model, get_current_model, get_model_display_name
+    from core.llm import switch_provider, get_current_provider, get_current_model, get_model_display_name
 except ImportError:
     # Fallback if import fails
-    def switch_model(model_name): return True
+    def switch_provider(provider): return True
+    def get_current_provider(): return "gemini"
     def get_current_model(): return "flash"
     def get_model_display_name(): return "Gemini 2.0 Flash"
-
-
-class VoiceRecorder(QThread):
-    """Background thread for voice recording and transcription."""
-    
-    transcription_ready = pyqtSignal(str)  # Signal when text is ready
-    
-    def __init__(self):
-        """Initialize voice recorder."""
-        super().__init__()
-        self.recording = False
-        self.model = None
-        
-    def run(self):
-        """Run voice recording and transcription."""
-        try:
-            # Import faster-whisper (optional dependency)
-            import pyaudio
-            import numpy as np
-            
-            # Initialize audio recording
-            CHUNK = 1024
-            FORMAT = pyaudio.paInt16
-            CHANNELS = 1
-            RATE = 16000
-            
-            p = pyaudio.PyAudio()
-            stream = p.open(format=FORMAT,
-                          channels=CHANNELS,
-                          rate=RATE,
-                          input=True,
-                          frames_per_buffer=CHUNK)
-            
-            audio_data = []
-            
-            # Record audio while recording flag is True
-            while self.recording:
-                data = stream.read(CHUNK, exception_on_overflow=False)
-                audio_data.append(np.frombuffer(data, dtype=np.int16))
-            
-            # Stop recording
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
-            
-            # Transcribe with whisper (if available)
-            if audio_data:
-                try:
-                    from faster_whisper import WhisperModel
-                    
-                    if self.model is None:
-                        self.model = WhisperModel("base", device="cpu")
-                    
-                    # Convert audio to format whisper expects
-                    audio_array = np.concatenate(audio_data)
-                    audio_float = audio_array.astype(np.float32) / 32768.0
-                    
-                    # Transcribe
-                    segments, info = self.model.transcribe(audio_float)
-                    text = " ".join([segment.text for segment in segments])
-                    
-                    # Emit transcription
-                    if text.strip():
-                        self.transcription_ready.emit(text.strip())
-                except ImportError:
-                    # Whisper not available, emit placeholder
-                    self.transcription_ready.emit("[Voice input - whisper not installed]")
-        except Exception as e:
-            # Handle any errors gracefully
-            self.transcription_ready.emit(f"[Voice error: {str(e)}]")
-    
-    def start_recording(self):
-        """Start voice recording."""
-        self.recording = True
-        self.start()
-    
-    def stop_recording(self):
-        """Stop voice recording."""
-        self.recording = False
 
 
 class TaskInputDialog(QDialog):
@@ -119,8 +36,6 @@ class TaskInputDialog(QDialog):
     def __init__(self):
         """Initialize the input dialog."""
         super().__init__()
-        self.voice_recorder = None
-        self.is_recording = False
         self.drag_position = QPoint()
         self.init_ui()
         
@@ -168,8 +83,26 @@ class TaskInputDialog(QDialog):
         model_layout.addWidget(model_label)
         
         self.model_selector = QComboBox()
-        self.model_selector.addItem("Gemini 2.0 Flash (Faster)", "flash")
-        self.model_selector.addItem("Gemini 1.5 Pro (Smarter)", "pro")
+        
+        # Add Gemini models
+        self.model_selector.addItem("Gemini 2.5 Flash (Faster)", "gemini:flash")
+        self.model_selector.addItem("Gemini 2.5 Pro (Smarter)", "gemini:pro")
+        
+        # Add Claude models
+        self.model_selector.addItem("Claude 3.5 Sonnet (Balanced)", "claude:sonnet")
+        self.model_selector.addItem("Claude 3.5 Haiku (Fastest)", "claude:haiku")
+        self.model_selector.addItem("Claude 3 Opus (Most Capable)", "claude:opus")
+        
+        # Add OpenRouter model
+        self.model_selector.addItem("OpenRouter: Claude 3.5 Haiku", "openrouter:anthropic/claude-3.5-haiku")
+        
+        # Add NVIDIA models
+        self.model_selector.addItem("NVIDIA: Llama 3.2 90B Vision", "nvidia:meta/llama-3.2-90b-vision-instruct")
+        
+        # Add Ollama models
+        self.model_selector.addItem("Ollama Local: llama3.2-vision:11b", "ollama:llama3.2-vision:11b")
+        self.model_selector.addItem("Ollama Local: llama3.2-vision:90b", "ollama:llama3.2-vision:90b")
+        
         self.model_selector.setFont(QFont("Segoe UI", 10))
         self.model_selector.setStyleSheet("""
             QComboBox {
@@ -202,10 +135,37 @@ class TaskInputDialog(QDialog):
             }
         """)
         
-        # Set current model
+        # Set current model based on provider and model
         current_model = get_current_model()
-        index = 0 if current_model == "flash" else 1
-        self.model_selector.setCurrentIndex(index)
+        current_display = get_model_display_name()
+        
+        # Find matching index in dropdown
+        for i in range(self.model_selector.count()):
+            item_data = self.model_selector.itemData(i)
+            if item_data:
+                provider, model = item_data.split(":", 1)
+                # Match based on current provider and model
+                if provider == "gemini" and current_model in ["gemini-2.5-flash", "flash"]:
+                    if model == "flash":
+                        self.model_selector.setCurrentIndex(i)
+                        break
+                elif provider == "gemini" and current_model in ["gemini-2.5-pro", "pro"]:
+                    if model == "pro":
+                        self.model_selector.setCurrentIndex(i)
+                        break
+                elif provider == "claude" and current_model.startswith("claude"):
+                    if model in current_model:
+                        self.model_selector.setCurrentIndex(i)
+                        break
+                elif provider == "openrouter" and current_model in item_data:
+                    self.model_selector.setCurrentIndex(i)
+                    break
+                elif provider == "nvidia" and current_model in item_data:
+                    self.model_selector.setCurrentIndex(i)
+                    break
+                elif provider == "ollama" and current_model in item_data:
+                    self.model_selector.setCurrentIndex(i)
+                    break
         
         # Connect model change signal
         self.model_selector.currentIndexChanged.connect(self.on_model_changed)
@@ -235,27 +195,6 @@ class TaskInputDialog(QDialog):
         
         # Create button layout
         button_layout = QHBoxLayout()
-        
-        # Add voice toggle button
-        self.voice_button = QPushButton("Voice")
-        self.voice_button.setFont(QFont("Segoe UI", 10))
-        self.voice_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(100, 200, 255, 150);
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 10px 20px;
-            }
-            QPushButton:hover {
-                background-color: rgba(100, 200, 255, 200);
-            }
-            QPushButton:pressed {
-                background-color: rgba(100, 200, 255, 100);
-            }
-        """)
-        self.voice_button.clicked.connect(self.toggle_voice_input)
-        button_layout.addWidget(self.voice_button)
         
         # Add submit button
         submit_button = QPushButton("Start")
@@ -301,14 +240,6 @@ class TaskInputDialog(QDialog):
         
         inner_layout.addLayout(button_layout)
         
-        # Add recording indicator (hidden by default)
-        self.recording_label = QLabel("Recording...")
-        self.recording_label.setFont(QFont("Segoe UI", 10))
-        self.recording_label.setStyleSheet("color: rgba(255, 100, 100, 255); background: transparent; border: none;")
-        self.recording_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.recording_label.hide()
-        inner_layout.addWidget(self.recording_label)
-        
         container.setLayout(inner_layout)
         main_layout.addWidget(container)
         self.setLayout(main_layout)
@@ -324,80 +255,56 @@ class TaskInputDialog(QDialog):
         y = (screen.height() - self.height()) // 2
         self.move(x, y)
     
-    def toggle_voice_input(self):
-        """Toggle voice input on/off."""
-        if not self.is_recording:
-            # Start recording
-            self.is_recording = True
-            self.voice_button.setText("Stop")
-            self.voice_button.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(255, 100, 100, 150);
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 10px 20px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(255, 100, 100, 200);
-                }
-            """)
-            self.recording_label.show()
-            
-            # Start voice recorder
-            self.voice_recorder = VoiceRecorder()
-            self.voice_recorder.transcription_ready.connect(self.on_transcription_ready)
-            self.voice_recorder.start_recording()
-        else:
-            # Stop recording
-            self.is_recording = False
-            self.voice_button.setText("Voice")
-            self.voice_button.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(100, 200, 255, 150);
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 10px 20px;
-                }
-                QPushButton:hover {
-                    background-color: rgba(100, 200, 255, 200);
-                }
-            """)
-            self.recording_label.hide()
-            
-            # Stop voice recorder
-            if self.voice_recorder:
-                self.voice_recorder.stop_recording()
-    
-    def on_transcription_ready(self, text):
-        """Handle transcribed text from voice input.
-        
-        Args:
-            text (str): Transcribed text
-        """
-        # Append text to input field
-        current_text = self.task_input.text()
-        if current_text:
-            self.task_input.setText(current_text + " " + text)
-        else:
-            self.task_input.setText(text)
-    
     def on_model_changed(self, index):
         """Handle model selection change.
         
         Args:
             index (int): Selected index in combo box
         """
-        # Get selected model key
+        # Get selected model key (format: "provider:model")
         model_key = self.model_selector.itemData(index)
         
-        # Switch to selected model
-        if switch_model(model_key):
-            # Update UI to show current model
-            model_name = get_model_display_name()
-            # Could add a status message here if needed
-            pass
+        if not model_key:
+            return
+        
+        # Parse provider and model from the key
+        try:
+            provider, model = model_key.split(":", 1)
+            
+            # Display information about the selected model
+            print(f"\n{'='*60}")
+            print(f"[UI] Model Change Requested")
+            print(f"[UI] Provider: {provider}")
+            print(f"[UI] Model: {model}")
+            print(f"{'='*60}\n")
+            
+            # Switch to the new provider
+            success = switch_provider(provider)
+            
+            if success:
+                # Update the config module's model variables based on provider
+                import config
+                if provider == "claude":
+                    config.CLAUDE_MODEL = model if model.startswith("claude") else f"claude-3-5-{model}-20241022"
+                elif provider == "gemini":
+                    config.CURRENT_MODEL = model
+                elif provider == "openrouter":
+                    config.OPENROUTER_MODEL = model
+                elif provider == "nvidia":
+                    config.NVIDIA_MODEL = model
+                elif provider == "ollama":
+                    config.OLLAMA_MODEL = model
+                
+                print(f"[UI] ✓ Successfully switched to {self.model_selector.currentText()}")
+                print(f"[UI] Current provider: {get_current_provider()}")
+                print(f"[UI] Current model: {get_current_model()}")
+            else:
+                print(f"[UI] ✗ Failed to switch to {provider}")
+            
+        except ValueError:
+            print(f"[UI] Invalid model key format: {model_key}")
+        except Exception as e:
+            print(f"[UI] Error switching model: {e}")
     
     def submit_task(self):
         """Submit the task and close dialog."""
@@ -469,37 +376,5 @@ def show_task_input_dialog():
     # Return task text or None
     return result[0]
 
-
-def create_voice_button():
-    """Create a styled voice input button.
-    
-    Returns:
-        QPushButton: Configured voice button
-    """
-    # Create button with microphone icon
-    button = QPushButton("Mic")
-    button.setFont(QFont("Segoe UI", 12))
-    
-    # Style with CSS
-    button.setStyleSheet("""
-        QPushButton {
-            background-color: rgba(100, 200, 255, 150);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 10px;
-            min-width: 40px;
-            min-height: 40px;
-        }
-        QPushButton:hover {
-            background-color: rgba(100, 200, 255, 200);
-            transform: scale(1.1);
-        }
-        QPushButton:pressed {
-            background-color: rgba(100, 200, 255, 100);
-        }
-    """)
-    
-    return button
 
 # Made with Bob

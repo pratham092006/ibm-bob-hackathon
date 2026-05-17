@@ -1,299 +1,398 @@
-"""Application-specific keyboard shortcuts and handlers.
+"""App-Specific Handlers — keyboard-shortcut-based navigation.
 
-Dev 2 (Ashish) - Executor & Safety
+This module provides per-app handlers that use keyboard shortcuts and 
+app-specific navigation patterns instead of screenshot + coordinate guessing.
 
-This module enables AXON to use keyboard shortcuts optimized for specific applications
-instead of slow mouse movements. It provides:
-- Comprehensive shortcut mappings for popular applications
-- Auto-detection of active application
-- Safe execution of app-specific shortcuts
-- Shortcut suggestion system for tasks
+Why this works better than vision:
+- Uses the app's OWN navigation shortcuts (guaranteed to work)
+- No coordinates, no screenshots, no OCR, no AI for execution
+- Handles common apps: Discord, Chrome, Notepad, VS Code, etc.
 
-Integration with other modules:
-- Uses win_api.get_active_window() to detect active application
-- Uses actions.press_key() to execute keyboard shortcuts
+Usage:
+    handler = get_app_handler("discord")
+    if handler:
+        success = handler.navigate_to_dm("Pratham")
+        handler.send_message("Hii")
+    else:
+        # fall back to vision-based approach
 """
 
+import time
+import subprocess
+import pyautogui
 import logging
-from typing import Optional, Dict, List
-from executor.win_api import get_active_window
-from executor.actions import press_key
+from typing import Optional
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------
+# Base class
+# ------------------------------------------------------------------
 
-# Application-specific shortcut mappings
-APP_SHORTCUTS = {
-    'chrome.exe': {
-        'new_tab': 'ctrl+t',
-        'close_tab': 'ctrl+w',
-        'reopen_tab': 'ctrl+shift+t',
-        'new_window': 'ctrl+n',
-        'incognito': 'ctrl+shift+n',
-        'refresh': 'f5',
-        'hard_refresh': 'ctrl+f5',
-        'address_bar': 'ctrl+l',
-        'find': 'ctrl+f',
-        'bookmark': 'ctrl+d',
-        'downloads': 'ctrl+j',
-        'history': 'ctrl+h',
-        'dev_tools': 'f12',
-    },
-    'firefox.exe': {
-        'new_tab': 'ctrl+t',
-        'close_tab': 'ctrl+w',
-        'reopen_tab': 'ctrl+shift+t',
-        'new_window': 'ctrl+n',
-        'private_window': 'ctrl+shift+p',
-        'refresh': 'f5',
-        'address_bar': 'ctrl+l',
-        'find': 'ctrl+f',
-        'bookmark': 'ctrl+d',
-    },
-    'WINWORD.EXE': {  # Microsoft Word
-        'save': 'ctrl+s',
-        'save_as': 'f12',
-        'print': 'ctrl+p',
-        'undo': 'ctrl+z',
-        'redo': 'ctrl+y',
-        'bold': 'ctrl+b',
-        'italic': 'ctrl+i',
-        'underline': 'ctrl+u',
-        'find': 'ctrl+f',
-        'replace': 'ctrl+h',
-    },
-    'EXCEL.EXE': {  # Microsoft Excel
-        'save': 'ctrl+s',
-        'new_sheet': 'shift+f11',
-        'format_cells': 'ctrl+1',
-        'insert_row': 'ctrl+shift++',
-        'delete_row': 'ctrl+-',
-        'find': 'ctrl+f',
-        'replace': 'ctrl+h',
-    },
-    'Code.exe': {  # VS Code
-        'command_palette': 'ctrl+shift+p',
-        'quick_open': 'ctrl+p',
-        'new_file': 'ctrl+n',
-        'save': 'ctrl+s',
-        'find': 'ctrl+f',
-        'replace': 'ctrl+h',
-        'comment': 'ctrl+/',
-        'terminal': 'ctrl+`',
-        'sidebar': 'ctrl+b',
-    },
-    'explorer.exe': {  # Windows Explorer
-        'new_folder': 'ctrl+shift+n',
-        'delete': 'delete',
-        'rename': 'f2',
-        'refresh': 'f5',
-        'address_bar': 'alt+d',
-        'search': 'ctrl+f',
-        'properties': 'alt+enter',
-    },
+class AppHandler:
+    """Base class for app-specific keyboard handlers."""
+    
+    APP_NAME: str = ""
+    WINDOW_TITLE_PATTERN: str = ""
+    
+    def is_running(self) -> bool:
+        """Check if the app window is currently visible."""
+        try:
+            import pywinauto
+            wins = pywinauto.findwindows.find_windows(title_re=self.WINDOW_TITLE_PATTERN)
+            return len(wins) > 0
+        except Exception:
+            return False
+    
+    def focus(self) -> bool:
+        """Bring the app window to foreground."""
+        try:
+            from pywinauto import Application
+            app = Application(backend="uia").connect(title_re=self.WINDOW_TITLE_PATTERN)
+            win = app.top_window()
+            win.set_focus()
+            time.sleep(0.3)
+            return True
+        except Exception as e:
+            logger.warning(f"[{self.APP_NAME}] Could not focus window: {e}")
+            return False
+
+    def _press(self, key: str, delay: float = 0.15):
+        pyautogui.press(key)
+        time.sleep(delay)
+
+    def _hotkey(self, *keys, delay: float = 0.2):
+        pyautogui.hotkey(*keys)
+        time.sleep(delay)
+
+    def _type(self, text: str, delay: float = 0.1):
+        """Type text via clipboard for reliability."""
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            time.sleep(0.05)
+            pyautogui.hotkey('ctrl', 'v')
+        except ImportError:
+            pyautogui.write(text, interval=0.04)
+        time.sleep(delay)
+
+    def _sleep(self, seconds: float):
+        time.sleep(seconds)
+
+
+# ------------------------------------------------------------------
+# Discord Handler
+# ------------------------------------------------------------------
+
+class DiscordHandler(AppHandler):
+    """
+    Discord navigation using keyboard shortcuts.
+    
+    Key shortcuts:
+    - Ctrl+K  : Quick Switcher (find any user/channel/server by name)
+    - Enter   : Confirm / open selection
+    
+    This completely bypasses screenshot + coordinate guessing.
+    After Ctrl+K -> type username -> Enter, the DM is open and
+    the message input is auto-focused. Just type + Enter to send.
+    """
+    
+    APP_NAME = "Discord"
+    WINDOW_TITLE_PATTERN = ".*Discord.*"
+    
+    def navigate_to_dm(self, username: str) -> bool:
+        """Open a DM with a user via Discord Quick Switcher (Ctrl+K)."""
+        try:
+            logger.info(f"[Discord] Opening DM with '{username}' via Ctrl+K")
+            
+            if not self.focus():
+                logger.warning("[Discord] Window not found, cannot navigate")
+                return False
+            
+            # Open Quick Switcher
+            self._hotkey('ctrl', 'k')
+            self._sleep(0.5)
+            
+            # Type username
+            self._type(username, delay=0.5)
+            
+            # Wait for search results
+            self._sleep(0.7)
+            
+            # Select first result
+            self._press('enter', delay=0.8)
+            
+            logger.info(f"[Discord] Navigated to DM: {username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[Discord] navigate_to_dm failed: {e}")
+            return False
+    
+    def focus_message_input(self) -> bool:
+        """Focus the message input at the bottom of the chat."""
+        try:
+            # After Ctrl+K navigation, input is auto-focused.
+            # As fallback, click at the bottom-center of the screen.
+            screen_w, screen_h = pyautogui.size()
+            input_x = screen_w // 2
+            input_y = int(screen_h * 0.96)
+            pyautogui.click(input_x, input_y)
+            time.sleep(0.3)
+            return True
+        except Exception as e:
+            logger.error(f"[Discord] focus_message_input failed: {e}")
+            return False
+    
+    def send_message(self, text: str) -> bool:
+        """Type and send a message in the currently open DM."""
+        try:
+            logger.info(f"[Discord] Sending message: '{text}'")
+            
+            # Ensure input field is focused
+            self.focus_message_input()
+            
+            # Type the message
+            self._type(text, delay=0.3)
+            
+            # Send with Enter
+            self._press('enter', delay=0.2)
+            
+            logger.info(f"[Discord] Message sent!")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[Discord] send_message failed: {e}")
+            return False
+    
+    def full_dm_flow(self, username: str, message: str) -> bool:
+        """Complete: navigate to DM + send message."""
+        logger.info(f"[Discord] Full DM flow: to={username}, msg='{message}'")
+        
+        if not self.navigate_to_dm(username):
+            logger.error("[Discord] Failed to navigate to DM")
+            return False
+        
+        self._sleep(1.2)  # Wait for chat to load
+        
+        if not self.send_message(message):
+            logger.error("[Discord] Failed to send message")
+            return False
+        
+        logger.info("[Discord] Full DM flow complete!")
+        return True
+
+
+# ------------------------------------------------------------------
+# Chrome Handler
+# ------------------------------------------------------------------
+
+class ChromeHandler(AppHandler):
+    """Chrome browser navigation using keyboard shortcuts."""
+    
+    APP_NAME = "Chrome"
+    WINDOW_TITLE_PATTERN = ".*Google Chrome.*"
+    
+    def navigate_to_url(self, url: str) -> bool:
+        """Navigate to a URL using Ctrl+L (address bar shortcut)."""
+        try:
+            if not self.focus():
+                return False
+            self._hotkey('ctrl', 'l')
+            self._sleep(0.2)
+            self._type(url, delay=0.2)
+            self._press('enter', delay=1.0)
+            return True
+        except Exception as e:
+            logger.error(f"[Chrome] navigate_to_url failed: {e}")
+            return False
+
+
+# ------------------------------------------------------------------
+# Generic UIA Handler (for native Win32 apps)
+# ------------------------------------------------------------------
+
+class UIAHandler(AppHandler):
+    """
+    Generic UIA handler using pywinauto.
+    Works for native Windows apps: Notepad, File Explorer, Settings, etc.
+    """
+    
+    def __init__(self, window_title_pattern: str, app_name: str = ""):
+        self.WINDOW_TITLE_PATTERN = window_title_pattern
+        self.APP_NAME = app_name or window_title_pattern
+    
+    def find_and_click(self, element_name: str = None, control_type: str = None,
+                       auto_id: str = None) -> bool:
+        """Find a UI element by name/type and click it precisely."""
+        try:
+            from pywinauto import Application
+            app = Application(backend="uia").connect(title_re=self.WINDOW_TITLE_PATTERN)
+            win = app.top_window()
+            win.set_focus()
+            
+            kwargs = {}
+            if element_name:
+                kwargs['title'] = element_name
+            if control_type:
+                kwargs['control_type'] = control_type
+            if auto_id:
+                kwargs['auto_id'] = auto_id
+            
+            element = win.child_window(**kwargs)
+            element.click_input()
+            time.sleep(0.2)
+            return True
+            
+        except Exception as e:
+            logger.error(f"[{self.APP_NAME}] find_and_click failed: {e}")
+            return False
+    
+    def find_and_type(self, text: str, element_name: str = None,
+                      control_type: str = "Edit", auto_id: str = None) -> bool:
+        """Find a text input element and type into it."""
+        try:
+            from pywinauto import Application
+            app = Application(backend="uia").connect(title_re=self.WINDOW_TITLE_PATTERN)
+            win = app.top_window()
+            win.set_focus()
+            
+            kwargs = {'control_type': control_type}
+            if element_name:
+                kwargs['title'] = element_name
+            if auto_id:
+                kwargs['auto_id'] = auto_id
+            
+            element = win.child_window(**kwargs)
+            element.click_input()
+            element.type_keys(text, with_spaces=True)
+            time.sleep(0.1)
+            return True
+            
+        except Exception as e:
+            logger.error(f"[{self.APP_NAME}] find_and_type failed: {e}")
+            return False
+    
+    def dump_elements(self) -> list:
+        """Debug utility: list all accessible UI elements."""
+        try:
+            from pywinauto import Application
+            app = Application(backend="uia").connect(title_re=self.WINDOW_TITLE_PATTERN)
+            win = app.top_window()
+            elements = []
+            def walk(parent, depth=0):
+                if depth > 4:
+                    return
+                for child in parent.children():
+                    try:
+                        elements.append({
+                            'name': child.window_text(),
+                            'type': child.element_info.control_type,
+                            'rect': str(child.rectangle()),
+                            'depth': depth
+                        })
+                        walk(child, depth + 1)
+                    except Exception:
+                        pass
+            walk(win)
+            return elements
+        except Exception as e:
+            logger.error(f"[{self.APP_NAME}] dump_elements failed: {e}")
+            return []
+
+
+# ------------------------------------------------------------------
+# Handler registry
+# ------------------------------------------------------------------
+
+_HANDLERS = {
+    "discord":      DiscordHandler,
+    "chrome":       ChromeHandler,
+    "google chrome": ChromeHandler,
 }
 
 
-def get_app_shortcuts(app_name: Optional[str] = None) -> Dict[str, str]:
-    """Get keyboard shortcuts for an application.
+def get_app_handler(app_name: str) -> Optional[AppHandler]:
+    """Get a keyboard/UIA handler for the given app.
     
-    This is a CORE FUNCTION that retrieves app-specific shortcuts for optimization.
-    If no app_name is provided, it auto-detects the currently active application.
-    
-    Args:
-        app_name (str, optional): Application process name (e.g., 'chrome.exe').
-                                 If None, auto-detects from active window.
-        
-    Returns:
-        dict: Shortcut mappings for the application (e.g., {'new_tab': 'ctrl+t'})
-              Returns empty dict if app not found or error occurs.
-    
-    Example:
-        >>> # Auto-detect active app
-        >>> shortcuts = get_app_shortcuts()
-        >>> print(shortcuts.get('new_tab'))  # 'ctrl+t' if Chrome is active
-        
-        >>> # Explicit app name
-        >>> shortcuts = get_app_shortcuts('chrome.exe')
-        >>> print(shortcuts)  # {'new_tab': 'ctrl+t', 'close_tab': 'ctrl+w', ...}
+    Returns None if no specific handler exists (will fall back to vision).
     """
-    try:
-        # If app_name not provided, detect active application
-        if app_name is None:
-            active_window = get_active_window()
-            if not active_window:
-                logger.warning("Could not detect active window")
-                return {}
-            
-            app_name = active_window.get('process')
-            if not app_name:
-                logger.warning("Active window has no process name")
-                return {}
-            
-            logger.debug(f"Auto-detected active app: {app_name}")
-        
-        # Look up shortcuts in APP_SHORTCUTS dictionary
-        shortcuts = APP_SHORTCUTS.get(app_name, {})
-        
-        if shortcuts:
-            logger.info(f"Found {len(shortcuts)} shortcuts for {app_name}")
-        else:
-            logger.info(f"No shortcuts defined for {app_name}")
-        
-        return shortcuts
-    
-    except Exception as e:
-        logger.error(f"Error getting shortcuts for {app_name}: {e}")
-        return {}
+    return _HANDLERS.get(app_name.lower().strip(), lambda: None)()
 
 
-def execute_app_shortcut(shortcut_name: str, app_name: Optional[str] = None) -> bool:
-    """Execute an application-specific shortcut.
+def parse_task_intent(task: str) -> Optional[dict]:
+    """Parse a task string into structured intent for direct execution.
     
-    This is a CORE FUNCTION that executes keyboard shortcuts for app-specific actions.
-    Much faster than mouse movements for common operations.
+    Handles common task patterns WITHOUT calling the LLM.
+    Only returns a result if the task is unambiguous.
+    
+    Returns:
+        dict with intent, or None if LLM planning is needed.
+    """
+    import re
+    task_lower = task.lower().strip()
+    
+    # Discord DM: "message/dm/text [user] [message text]"
+    if 'discord' in task_lower or any(w in task_lower for w in ['message', 'dm', 'msg']):
+        parts = re.search(
+            r'(?:message|msg|dm|text|send|tell|say to|write to)\s+(\w+)[,\s]+["\']?(.+?)["\']?\s*$',
+            task_lower
+        )
+        if parts:
+            target = parts.group(1).strip()
+            text = parts.group(2).strip()
+            text = text[0].upper() + text[1:]  # Capitalize
+            return {"app": "discord", "action": "dm", "target": target, "text": text}
+    
+    # Chrome URL navigation
+    url_m = re.search(
+        r'(?:go to|open|navigate to|visit)\s+(https?://\S+|www\.\S+|\w+\.(?:com|org|net|io|co)\S*)',
+        task_lower
+    )
+    if url_m and ('chrome' in task_lower or 'browser' in task_lower or 'go to' in task_lower or 'navigate' in task_lower):
+        url = url_m.group(1)
+        if not url.startswith('http'):
+            url = 'https://' + url
+        return {"app": "chrome", "action": "navigate", "url": url}
+    
+    return None
+
+
+def execute_intent(intent: dict) -> bool:
+    """Execute a structured intent using app handlers.
     
     Args:
-        shortcut_name (str): Name of the shortcut action (e.g., 'new_tab', 'save', 'find')
-        app_name (str, optional): Application process name. If None, uses active app.
+        intent: Output from parse_task_intent()
         
     Returns:
-        bool: True if shortcut executed successfully, False otherwise
-    
-    Example:
-        >>> # Execute shortcut in active app
-        >>> execute_app_shortcut('new_tab')  # Opens new tab if browser is active
-        
-        >>> # Execute shortcut for specific app
-        >>> execute_app_shortcut('new_tab', 'chrome.exe')  # Executes Ctrl+T
-        
-        >>> # Common usage pattern
-        >>> if execute_app_shortcut('save'):
-        ...     print("File saved")
+        True if execution succeeded.
     """
-    try:
-        # Get shortcuts for the application
-        shortcuts = get_app_shortcuts(app_name)
-        
-        if not shortcuts:
-            logger.warning(f"No shortcuts available for app: {app_name or 'active app'}")
-            return False
-        
-        # Look up the shortcut name
-        key_combination = shortcuts.get(shortcut_name)
-        
-        if not key_combination:
-            logger.warning(f"Shortcut '{shortcut_name}' not found for app. Available: {list(shortcuts.keys())}")
-            return False
-        
-        # Safety check: verify shortcut is not dangerous
-        if is_dangerous_shortcut(key_combination):
-            logger.warning(f"Refusing to execute dangerous shortcut: {key_combination}")
-            return False
-        
-        # Execute the key combination
-        logger.info(f"Executing shortcut '{shortcut_name}' -> {key_combination}")
-        success = press_key(key_combination)
-        
-        if success:
-            logger.info(f"Successfully executed shortcut: {shortcut_name}")
-        else:
-            logger.error(f"Failed to execute shortcut: {shortcut_name}")
-        
-        return success
+    app_name = intent.get("app", "")
+    action = intent.get("action", "")
     
-    except Exception as e:
-        logger.error(f"Error executing shortcut '{shortcut_name}': {e}")
+    handler = get_app_handler(app_name)
+    if not handler:
+        logger.warning(f"[AppHandlers] No handler for '{app_name}'")
         return False
-
-
-def suggest_shortcuts_for_task(task_description: str, app_name: Optional[str] = None) -> List[str]:
-    """Suggest relevant shortcuts based on task description.
     
-    This is a FUTURE FEATURE that will use AI to suggest relevant shortcuts.
-    Currently returns all available shortcuts for the application.
+    # Open app if not running
+    if not handler.is_running():
+        logger.info(f"[AppHandlers] {app_name} not running, launching...")
+        pyautogui.press('win')
+        time.sleep(0.3)
+        pyautogui.write(app_name, interval=0.05)
+        time.sleep(0.5)
+        pyautogui.press('enter')
+        time.sleep(4.0)  # Wait for app to fully load
+    else:
+        handler.focus()
     
-    TODO: Enhance with LLM integration to intelligently match task descriptions
-    to relevant shortcuts. For example:
-    - "open new tab" -> ['new_tab', 'new_window']
-    - "save document" -> ['save', 'save_as']
-    - "find text" -> ['find', 'replace']
+    if isinstance(handler, DiscordHandler) and action == "dm":
+        return handler.full_dm_flow(intent.get("target", ""), intent.get("text", ""))
     
-    Args:
-        task_description (str): Description of what user wants to do
-        app_name (str, optional): Application name. If None, uses active app.
-        
-    Returns:
-        list: List of suggested shortcut names that might be relevant
+    if isinstance(handler, ChromeHandler) and action == "navigate":
+        return handler.navigate_to_url(intent.get("url", ""))
     
-    Example:
-        >>> suggestions = suggest_shortcuts_for_task("open new tab")
-        >>> print(suggestions)  # ['new_tab', 'new_window', 'incognito', ...]
-    """
-    try:
-        # Get shortcuts for the application
-        shortcuts = get_app_shortcuts(app_name)
-        
-        if not shortcuts:
-            logger.warning(f"No shortcuts available for app: {app_name or 'active app'}")
-            return []
-        
-        # TODO: Implement intelligent matching with LLM
-        # For now, return all available shortcuts
-        # Future: Parse task_description and match keywords to shortcut names
-        
-        shortcut_names = list(shortcuts.keys())
-        logger.info(f"Suggesting {len(shortcut_names)} shortcuts for task: '{task_description[:50]}'")
-        
-        return shortcut_names
-    
-    except Exception as e:
-        logger.error(f"Error suggesting shortcuts for task '{task_description[:50]}': {e}")
-        return []
-
-
-def is_dangerous_shortcut(shortcut: str) -> bool:
-    """Check if a shortcut could be dangerous to execute.
-    
-    This is a SAFETY FEATURE that prevents AXON from executing shortcuts
-    that could cause data loss, close windows, or disrupt the system.
-    
-    Args:
-        shortcut (str): Keyboard shortcut string (e.g., 'alt+f4', 'ctrl+w')
-        
-    Returns:
-        bool: True if potentially dangerous, False if safe
-    
-    Example:
-        >>> is_dangerous_shortcut('alt+f4')  # True - closes window
-        >>> is_dangerous_shortcut('ctrl+s')  # False - just saves
-        >>> is_dangerous_shortcut('ctrl+w')  # True - closes tab/window
-    """
-    # Normalize shortcut to lowercase for comparison
-    shortcut_lower = shortcut.lower().strip()
-    
-    # List of dangerous shortcuts that could cause data loss or system disruption
-    dangerous_shortcuts = [
-        'alt+f4',           # Close window
-        'ctrl+w',           # Close tab/window (can cause data loss)
-        'ctrl+q',           # Quit application
-        'ctrl+alt+delete',  # System interrupt
-        'ctrl+alt+del',     # System interrupt (alternate)
-        'win+l',            # Lock screen
-        'win+r',            # Run dialog (could execute commands)
-        'alt+tab',          # Switch windows (disruptive)
-        'ctrl+shift+esc',   # Task manager
-        'win+x',            # Power user menu
-        'ctrl+shift+q',     # Sign out (Chrome OS / some apps)
-    ]
-    
-    # Check if shortcut is in dangerous list
-    is_dangerous = shortcut_lower in dangerous_shortcuts
-    
-    if is_dangerous:
-        logger.warning(f"Dangerous shortcut detected: {shortcut}")
-    
-    return is_dangerous
+    return False
 
 # Made with Bob

@@ -190,7 +190,8 @@ def get_screen_elements(image_path: str, native_width: int = None, native_height
             
             text_anchors.append({
                 "text": text,
-                "center_coordinate": [native_x, native_y]
+                "center_coordinate": [native_x, native_y],
+                "coordinate_space": "native"  # Already in screen coordinates - do NOT scale again
             })
         
         # Update cache
@@ -208,141 +209,55 @@ def get_screen_elements(image_path: str, native_width: int = None, native_height
 
 
 def _get_system_instruction(text_anchors: List[Dict[str, Any]]) -> str:
-    """Build system instruction for Gemini with text anchor context.
-    
-    Args:
-        text_anchors: List of detected text elements with coordinates
-        
-    Returns:
-        str: System instruction for the LLM
-    """
-    # Get native screen resolution for accurate coordinates
+    """Build tight system instruction optimized for small vision LLMs."""
     screen_w, screen_h = get_screen_resolution()
-    
-    # Format text anchors for the prompt
-    anchors_text = ""
+
+    # Format text anchors — already in native screen coords, ready to use directly
     if text_anchors:
-        anchors_text = "\n\n**Detected Text Elements (MOST RELIABLE - use these coordinates):**\n"
-        for anchor in text_anchors[:50]:  # Limit to first 50 to avoid token overflow
-            text = anchor["text"]
-            coord = anchor["center_coordinate"]
-            anchors_text += f'- "{text}" at [{coord[0]}, {coord[1]}]\n'
+        anchors_lines = "\n".join(
+            f'  "{a["text"]}" -> [{a["center_coordinate"][0]}, {a["center_coordinate"][1]}]'
+            for a in text_anchors[:50]
+        )
+        anchors_block = f"DETECTED TEXT ELEMENTS (native {screen_w}x{screen_h} coords — use EXACTLY as given):\n{anchors_lines}"
     else:
-        anchors_text = "\n\n**Note:** No text elements detected on screen. Use Windows Search (Win key + type) to open applications."
-    
-    return f"""You are an AI agent controlling a Windows desktop to accomplish user tasks.
+        anchors_block = "No text detected on screen. Use open_app to launch applications."
 
-**CRITICAL: Multi-Step Task Execution**
-For complex tasks like "Open Discord and message Pratham good morning", break it into sequential steps:
-1. First, open the application (if not already open)
-2. Wait for it to load (check if UI elements are visible)
-3. Find the target (search for user, locate input field)
-4. Click on the correct element (chat, text box, button)
-5. Type the message
-6. Send the message (press Enter or click Send)
+    return f"""You are an AI agent controlling a Windows {screen_w}x{screen_h} desktop. Return ONE JSON action per turn.
 
-**IMPORTANT: Check Application State**
-- Before opening an app, check if it's ALREADY OPEN by looking for its UI elements
-- If you see Discord UI elements (channels, messages, search bar), DON'T open Discord again
-- If you see Chrome tabs/address bar, DON'T open Chrome again
-- Move to the next step of the task instead
+COORDINATE RULES (CRITICAL — read carefully):
+- Text anchor coordinates below are ALREADY in native screen pixels ({screen_w}x{screen_h}).
+- Copy them EXACTLY into your response. Do NOT multiply, scale, or modify them.
+- If you invent coordinates (no text anchor found), stay within: x=0..{screen_w}, y=0..{screen_h}.
 
-**CRITICAL: Finding Text Input Fields**
-When you need to type a message:
-1. Look for text anchors like "Type a message", "Message", "Search", or input field indicators
-2. Click DIRECTLY on the text input field (usually has a text cursor or placeholder text)
-3. Wait for the field to be focused (cursor should be blinking)
-4. Then type your message
-5. Common input field locations:
-   - Discord: Bottom of chat window, look for "Message @username" or "Type a message"
-   - Chrome: Address bar at top, search boxes
-   - Text editors: Main text area
+TASK RULES:
+1. Check if app is already open before calling open_app. If you see its UI — skip open_app.
+2. After open_app, wait — the next screenshot will show the new app state.
+3. To interact with an element: use its text anchor coordinate.
+4. To type a message: click the text INPUT FIELD first (bottom of chat), then use 'type'.
+5. After typing: press Enter to SEND. Use: {{"action":"key","text":"enter","reasoning":"sending message","confidence":1.0}}
+6. Return 'done' only AFTER the message is confirmed sent (Enter was pressed).
+7. Never click the same spot more than twice. If stuck, try a different element.
+8. Input fields are at the BOTTOM of chat windows, NOT in the message history area.
+9. To print a document: use print_document action with the document name (e.g., "KheloParty_Full_Plan"). This will automatically open and print the document.
 
-**NEVER:**
-- Click random areas hoping to find the input field
-- Type without first clicking on the input field
-- Click on messages or chat history when you need to type
-- Click on user avatars or names when you need the text input
+ACTIONS:
+  open_app:      {{"action":"open_app","text":"discord","reasoning":"...","confidence":0.95}}
+  left_click:    {{"action":"left_click","coordinate":[x,y],"reasoning":"...","confidence":0.9}}
+  double_click:  {{"action":"double_click","coordinate":[x,y],"reasoning":"...","confidence":0.9}}
+  right_click:   {{"action":"right_click","coordinate":[x,y],"reasoning":"...","confidence":0.8}}
+  type:          {{"action":"type","text":"Hello","reasoning":"...","confidence":0.95}}
+  key:           {{"action":"key","text":"enter","reasoning":"...","confidence":1.0}}
+  mouse_move:    {{"action":"mouse_move","coordinate":[x,y],"reasoning":"...","confidence":0.8}}
+  scroll:        {{"action":"scroll","coordinate":[x,y],"direction":"down","amount":3,"reasoning":"...","confidence":0.8}}
+  print_document:{{"action":"print_document","text":"KheloParty_Full_Plan","reasoning":"printing document","confidence":0.95}}
+  done:          {{"action":"done","reasoning":"task complete","confidence":1.0}}
 
-**CRITICAL: How to Use Text Anchors**
-Text anchors are the MOST RELIABLE way to interact with UI elements. ALWAYS prefer them over visual estimation.
+{anchors_block}
 
-**Examples of Correct Usage:**
-- Task: "Open Chrome"
-  - If you see text anchor: "Chrome" at [100, 920]
-  - Response: {{"action": "left_click", "coordinate": [100, 920], "reasoning": "Clicking Chrome text anchor on taskbar", "confidence": 0.95}}
-  
-- Task: "Click Start Menu"
-  - If you see text anchor: "Start" at [30, 1050]
-  - Response: {{"action": "left_click", "coordinate": [30, 1050], "reasoning": "Clicking Start text anchor", "confidence": 0.95}}
+IMPORTANT: Return ONLY valid JSON. No markdown. No extra text. Just the JSON object."""
 
-- Task: "Open Notepad"
-  - If NO text anchor found for "Notepad":
-  - Step 1: {{"action": "open_app", "text": "notepad", "reasoning": "Opening Notepad via Windows Search", "confidence": 0.95}}
 
-**Strategy for Opening Applications:**
-1. ALWAYS use open_app action for opening applications: {{"action": "open_app", "text": "chrome"}}
-2. This is a single atomic operation that is FASTER and MORE RELIABLE than:
-   - Clicking taskbar icons (which may not be visible)
-   - Using separate key/type/enter actions (which is slow)
-3. DO NOT break this into separate actions - open_app handles everything atomically
-4. Examples:
-   - Open Chrome: {{"action": "open_app", "text": "chrome"}}
-   - Open Discord: {{"action": "open_app", "text": "discord"}}
-   - Open Notepad: {{"action": "open_app", "text": "notepad"}}
-   - Open Calculator: {{"action": "open_app", "text": "calculator"}}
 
-**NEVER:**
-- Open an app that's already open (check the screen first!)
-- Click random coordinates without a text anchor
-- Click IDE elements when task is about opening applications
-- Guess coordinates based on visual appearance alone
-- Repeat the same action more than twice without progress
-
-**Screen Dimensions:** {screen_w}x{screen_h} (native resolution)
-**Available Text Anchors:** (see below)
-
-{anchors_text}
-
-**Available Actions (respond with exact JSON schema):**
-
-1. open_app: Open application using Windows Search (FASTEST & MOST RELIABLE)
-   {{"action": "open_app", "text": "chrome", "reasoning": "opening Chrome browser", "confidence": 0.95}}
-   This is a single atomic operation that:
-   - Presses Windows key
-   - Types the app name
-   - Presses Enter
-   - Waits for app to launch
-   Use this for: "chrome", "notepad", "firefox", "calculator", "paint", etc.
-
-2. mouse_move: Move cursor to coordinates
-   {{"action": "mouse_move", "coordinate": [x, y], "reasoning": "why moving here", "confidence": 0.0-1.0}}
-
-3. left_click: Left click at coordinates
-   {{"action": "left_click", "coordinate": [x, y], "reasoning": "why clicking here", "confidence": 0.0-1.0}}
-
-4. right_click: Right click at coordinates
-   {{"action": "right_click", "coordinate": [x, y], "reasoning": "why right-clicking", "confidence": 0.0-1.0}}
-
-5. type: Type text character by character
-   {{"action": "type", "text": "string to type", "reasoning": "what I'm typing and why", "confidence": 0.0-1.0}}
-
-6. key: Press key or key combination
-   {{"action": "key", "text": "enter", "reasoning": "why pressing this key", "confidence": 0.0-1.0}}
-   Examples: "enter", "tab", "escape", "ctrl+c", "ctrl+v", "alt+tab", "win"
-
-7. scroll: Scroll at coordinates
-   {{"action": "scroll", "coordinate": [x, y], "direction": "up", "amount": 3, "reasoning": "why scrolling", "confidence": 0.0-1.0}}
-   - direction: "up" or "down"
-   - amount: integer (number of scroll clicks)
-
-8. done: Task completed successfully
-   {{"action": "done", "reasoning": "task completed because...", "confidence": 1.0}}
-
-**Response Format:**
-Return ONLY a JSON object with required fields: action, reasoning, confidence, and action-specific fields.
-Example: {{"action": "left_click", "coordinate": [100, 200], "reasoning": "Clicking Chrome icon based on text anchor", "confidence": 0.95}}
-"""
 
 
 def call_llm(
@@ -376,6 +291,9 @@ def call_llm(
         On error, returns safe fallback:
         {"action": "mouse_move", "coordinate": [0, 0]}
     """
+    # Log which model is being used
+    print(f"[LLM] Using provider: {LLM_PROVIDER.upper()}, model: {get_current_model()}")
+    
     if LLM_PROVIDER == "claude":
         return _call_claude(screen_image, task_description, conversation_history)
     elif LLM_PROVIDER == "openrouter":
@@ -1227,14 +1145,22 @@ def scale_coordinates(x: int, y: int, from_width: int = FRAME_WIDTH, from_height
 def normalize_and_scale_action(action_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize coordinate format and scale to screen resolution.
     
-    Handles coordinate scaling from image space to screen space for actions
-    that require coordinates.
+    Provider-aware coordinate handling:
+    
+    - Ollama / Claude / OpenRouter / NVIDIA:
+        The system prompt explicitly tells these models that text anchor coords
+        are already in native screen space and to output native-space coords.
+        So we NEVER scale — just clamp to screen bounds.
+    
+    - Gemini:
+        Gemini sees the resized image (FRAME_WIDTH x FRAME_HEIGHT) and naturally
+        outputs image-space coordinates. We scale those to native.
     
     Args:
         action_dict: Raw parsed action from LLM
         
     Returns:
-        dict: Action with normalized and scaled coordinates
+        dict: Action with normalized and clamped/scaled coordinates
     """
     action_type = action_dict.get('action', '')
     
@@ -1252,11 +1178,20 @@ def normalize_and_scale_action(action_dict: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[LLM] WARNING: No valid coordinates found for {action_type}")
         return action_dict
     
-    # Scale coordinates from image space to screen space
     raw_x, raw_y = int(coord[0]), int(coord[1])
-    scaled_x, scaled_y = scale_coordinates(raw_x, raw_y)
+    screen_w, screen_h = get_screen_resolution()
     
-    print(f"[LLM] Coordinates: image({raw_x}, {raw_y}) -> screen({scaled_x}, {scaled_y})")
+    # Provider-aware: Gemini uses image-space coords; all others use native-space.
+    if LLM_PROVIDER == "gemini":
+        # Scale from image space (FRAME_WIDTH x FRAME_HEIGHT) to screen space
+        scaled_x, scaled_y = scale_coordinates(raw_x, raw_y)
+        print(f"[LLM] Gemini coords scaled: image({raw_x}, {raw_y}) -> screen({scaled_x}, {scaled_y})")
+    else:
+        # Ollama / Claude / OpenRouter / NVIDIA: model outputs native-space coords.
+        # Just clamp to screen bounds (handles out-of-bounds values safely).
+        scaled_x = max(0, min(raw_x, screen_w - 1))
+        scaled_y = max(0, min(raw_y, screen_h - 1))
+        print(f"[LLM] Native coords (clamped): ({raw_x}, {raw_y}) -> ({scaled_x}, {scaled_y})")
     
     # Update coordinate array
     action_dict['coordinate'] = [scaled_x, scaled_y]

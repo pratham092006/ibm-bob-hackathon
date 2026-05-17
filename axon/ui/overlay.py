@@ -1,18 +1,15 @@
-"""Floating cursor widget with status label.
+"""Floating cursor widget with coordinate tracking.
 
-Dev 3 (Pratham) - UI & Demo
-Implements a floating cursor indicator:
-- Larger widget (200x200px) that follows predicted cursor position
-- Transparent background with only the reticle visible
-- Status text label showing current action
-- Always on top but click-through
-- NO fullscreen window, NO black screen
-- Just a cursor indicator beside your normal cursor
+Custom AI cursor implementation:
+- Follows the main mouse cursor at a slight offset
+- Displays cursor coordinates in real-time
+- Simple hand cursor icon without glowing effects
+- Always visible and tracks coordinates
 """
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel
+from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
-from PyQt6.QtGui import QPainter, QColor, QPen, QFont
+from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QCursor
 import sys
 import time
 import queue
@@ -20,7 +17,7 @@ from .reticle import Reticle
 
 
 class TransparentOverlay(QWidget):
-    """Floating cursor widget with status label."""
+    """Floating cursor widget with coordinate tracking."""
     
     def __init__(self):
         """Initialize the cursor widget."""
@@ -33,10 +30,16 @@ class TransparentOverlay(QWidget):
         self.response_time = 0.0
         self.action_count = 0
         self.last_update_time = time.time()
+        self._should_be_visible = False  # Flag to control visibility
+        self._dialog_is_open = False  # Flag to prevent showing when dialog is open
         
-        # Widget size - larger for visible glow effects
+        # Widget size - larger for coordinate display
         self.widget_size = 200
         self.center_offset = self.widget_size // 2
+        
+        # Offset from main cursor (pixels)
+        self.cursor_offset_x = 25
+        self.cursor_offset_y = 25
         
         self.init_ui()
         
@@ -66,13 +69,27 @@ class TransparentOverlay(QWidget):
         # Set up update timer for smooth animation (60 FPS)
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self._on_timer_update)
-        self.update_timer.start(16)  # ~60 FPS (16ms per frame)
+        # Don't start timer automatically - will be started when task begins
+        # self.update_timer.start(16)  # ~60 FPS (16ms per frame)
     
     def _on_timer_update(self):
-        """Handle timer update for animations."""
+        """Handle timer update for animations and cursor tracking."""
+        if not self.isVisible():
+            return  # skip tracking while hidden
+        
         current_time = time.time()
         delta_time = current_time - self.last_update_time
         self.last_update_time = current_time
+        
+        # Get current mouse cursor position
+        cursor_pos = QCursor.pos()
+        
+        # Calculate AI cursor position with offset
+        ai_cursor_x = cursor_pos.x() + self.cursor_offset_x
+        ai_cursor_y = cursor_pos.y() + self.cursor_offset_y
+        
+        # Update reticle position to follow mouse with offset
+        self.set_reticle_position(ai_cursor_x, ai_cursor_y, animate=True)
         
         # Update reticle animation
         self.reticle.update(delta_time)
@@ -195,20 +212,63 @@ class TransparentOverlay(QWidget):
     
     def hide_reticle(self):
         """Hide the cursor widget."""
+        self._should_be_visible = False
         self.hide()
     
     def show_reticle(self):
         """Show the cursor widget."""
+        self._should_be_visible = True
         self.reticle.show()
-        self.show()
+        if not self._dialog_is_open:
+            self.show()
     
     def show_overlay(self):
         """Show the cursor widget."""
-        self.show()
+        self._should_be_visible = True
+        if not self._dialog_is_open:
+            self.show()
     
     def hide_overlay(self):
         """Hide the cursor widget."""
+        self._should_be_visible = False
         self.hide()
+    
+    def set_dialog_open(self, is_open):
+        """Set whether the dialog is open to prevent overlay from showing.
+        
+        Args:
+            is_open (bool): True if dialog is open, False otherwise
+        """
+        self._dialog_is_open = is_open
+        if is_open:
+            # Force hide when dialog opens
+            self.hide()
+            print("[OVERLAY] Dialog opened - overlay hidden and locked")
+        else:
+            # Allow showing again when dialog closes
+            if self._should_be_visible:
+                self.show()
+            print("[OVERLAY] Dialog closed - overlay unlocked")
+    
+    def stop_timer(self):
+        """Stop the update timer completely.
+        
+        This prevents the overlay from updating and appearing when not needed,
+        especially during Alt+G dialog interactions.
+        """
+        if self.update_timer and self.update_timer.isActive():
+            self.update_timer.stop()
+            print("[OVERLAY] Timer stopped - overlay will not update")
+    
+    def start_timer(self):
+        """Start the update timer for smooth animations.
+        
+        This should only be called when a task is actually running and
+        the overlay needs to track the cursor.
+        """
+        if self.update_timer and not self.update_timer.isActive():
+            self.update_timer.start(16)  # ~60 FPS (16ms per frame)
+            print("[OVERLAY] Timer started - overlay will track cursor")
 
 
 def create_overlay():

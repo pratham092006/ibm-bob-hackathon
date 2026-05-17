@@ -433,4 +433,4 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Made with Bob** 🤖 | **Team Merge Conflicts** 🏆 | **IBM Bob Hackathon 2024**
+**Made with Bob** 🤖 | **Team Merge Conflicts** 🏆 | **IBM Bob Hackathon 2026**

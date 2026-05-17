@@ -370,4 +370,4 @@ Bob didn't just help us write code - Bob taught us best practices, solved comple
 
 **Team Merge Conflicts** 🏆  
 **Built with IBM Bob** 🤖  
-**IBM Bob Hackathon 2024**
+**IBM Bob Hackathon 2026**

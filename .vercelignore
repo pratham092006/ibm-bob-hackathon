@@ -1,0 +1,62 @@
+# Ignore Python application files
+*.py
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+# Ignore Python directories
+core/
+executor/
+ui/
+bob-reports/
+
+# Ignore Python dependencies
+requirements.txt
+.env
+.env.example
+
+# Ignore build files
+build/
+dist/
+*.spec
+*.exe
+
+# Ignore test files
+test_*.py
+
+# Ignore documentation (keep only landing page docs)
+ARCHITECTURE.md
+AXON_PRD.md
+BOB_USAGE_EVIDENCE.md
+BROWSER_AUTOMATION_README.md
+HOW_TO_RUN.md
+LLM_SETUP_GUIDE.md
+OLLAMA_QUICK_START.md
+OLLAMA_SETUP.md
+
+# Ignore config files
+config.py
+switch_llm.py
+
+# Ignore automation scripts
+github_search_automation.py
+print_document_automation.py
+
+# Ignore build scripts
+build.bat
+deploy-vercel.bat
+
+# Keep only landing page files:
+# - index.html
+# - styles.css
+# - script.js
+# - README.md
+# - BUILD_EXECUTABLE.md
+# - LANDING_PAGE_README.md
+# - VERCEL_DEPLOYMENT.md
+# - DEPLOYMENT_QUICK_START.md
+# - VERCEL_STATUS.md
+# - vercel.json
+# - pointinghand.svg

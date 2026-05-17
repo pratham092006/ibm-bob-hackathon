@@ -2,7 +2,8 @@
 
 **Team:** Merge Conflicts  
 **Built with:** IBM Bob AI Assistant  
-**Category:** AI Desktop Automation
+**Category:** AI Desktop 
+
 
 ## 🎬 Demo Video
 [📹 Watch Demo Video](YOUR_VIDEO_LINK_HERE)
@@ -353,18 +354,7 @@ That's it. That's the revolution.
 - Evidence-based claims
 - Production-ready code
 
-## 📊 Estimated Hackathon Score
-
-| Criteria | Score | Evidence |
-|----------|-------|----------|
-| **Innovation** | 10/10 | First vision-based desktop agent, paradigm shift |
-| **Technical** | 10/10 | 3,500+ lines, advanced architecture, safety features |
-| **Bob Usage** | 10/10 | 434-line evidence doc, session reports, core modules |
-| **Impact** | 10/10 | $2B+ market, democratizes automation, open source |
-| **Presentation** | 10/10 | Clear vision, comparisons, professional docs |
-| **TOTAL** | **50/50** | **🏆 WINNER** |
-
-### 🆚 Competitive Analysis
+## 🆚 Competitive Analysis
 
 **What other teams are likely submitting:**
 - ❌ Another chatbot (been done 1000x)

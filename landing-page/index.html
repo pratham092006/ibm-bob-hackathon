@@ -3,99 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AXON - AI Desktop Agent | GitHub Copilot for Your OS</title>
-    <meta name="description" content="AXON is a revolutionary AI desktop agent that sees your screen, understands your goals, and automates tasks autonomously. Built with IBM Bob AI Assistant.">
+    <title>AXON - Your AI Desktop Buddy! 🚀</title>
+    <meta name="description" content="Meet AXON - the friendliest AI agent that helps you automate boring desktop tasks with just your voice!">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Floating Shapes Background -->
+    <div class="floating-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+        <div class="shape shape-5"></div>
+        <div class="shape shape-6"></div>
+    </div>
+
     <!-- Navigation -->
     <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <span class="logo">🤖 AXON</span>
+        <div class="nav-container">
+            <div class="nav-logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="45" fill="url(#gradient1)"/>
+                        <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="50" cy="75" r="5" fill="white"/>
+                        <defs>
+                            <linearGradient id="gradient1" x1="0" y1="0" x2="100" y2="100">
+                                <stop offset="0%" stop-color="#9333EA"/>
+                                <stop offset="100%" stop-color="#F59E0B"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <span class="logo-text">AXON</span>
             </div>
             <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#download">Download</a>
-                <a href="#docs">Documentation</a>
-                <a href="https://github.com/pratham092006/ibm-bob-hackathon" target="_blank" class="btn-secondary">GitHub</a>
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+                <a href="#download" class="nav-link">Download</a>
+                <a href="#faq" class="nav-link">FAQ</a>
             </div>
+            <button class="mobile-menu-btn" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </nav>
 
+    <!-- Mobile Menu -->
+    <div class="mobile-menu">
+        <a href="#features" class="mobile-link">Features</a>
+        <a href="#how-it-works" class="mobile-link">How It Works</a>
+        <a href="#download" class="mobile-link">Download</a>
+        <a href="#faq" class="mobile-link">FAQ</a>
+    </div>
+
     <!-- Hero Section -->
     <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <div class="badge">🏆 IBM Bob Hackathon Winner</div>
-                <h1 class="hero-title">
-                    GitHub Copilot<br>
-                    <span class="gradient-text">For Your Operating System</span>
-                </h1>
-                <p class="hero-subtitle">
-                    An AI desktop agent that sees your screen, understands your goals, and automates tasks autonomously. 
-                    Just like Copilot helps you code, AXON helps you operate your entire computer.
-                </p>
-                <div class="hero-buttons">
-                    <a href="#download" class="btn-primary">
-                        <span>⬇️ Download AXON</span>
-                        <small>Windows • Free & Open Source</small>
-                    </a>
-                    <a href="#demo" class="btn-outline">
-                        <span>▶️ Watch Demo</span>
-                    </a>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-icon">🏆</span>
+                <span>IBM Bob Hackathon Winner</span>
+            </div>
+            <h1 class="hero-title">
+                Meet Your New
+                <span class="gradient-text">AI Desktop Buddy!</span>
+            </h1>
+            <p class="hero-subtitle">
+                AXON is like having a super-smart friend who can control your computer with just your voice! 
+                Say goodbye to boring, repetitive tasks and hello to automation magic! ✨
+            </p>
+            <div class="hero-buttons">
+                <a href="#download" class="btn btn-primary">
+                    <span class="btn-icon">⬇️</span>
+                    Download AXON
+                    <span class="btn-shine"></span>
+                </a>
+                <a href="#how-it-works" class="btn btn-secondary">
+                    <span class="btn-icon">🎬</span>
+                    Watch Demo
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Free & Open Source</div>
                 </div>
-                <div class="hero-stats">
-                    <div class="stat">
-                        <div class="stat-number">3,500+</div>
-                        <div class="stat-label">Lines of Code</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-number">5</div>
-                        <div class="stat-label">LLM Providers</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-number">100%</div>
-                        <div class="stat-label">Open Source</div>
-                    </div>
+                <div class="stat">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Smart Actions</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Possibilities</div>
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="demo-window">
-                    <div class="window-header">
-                        <div class="window-dots">
-                            <span></span><span></span><span></span>
-                        </div>
-                        <div class="window-title">AXON in Action</div>
-                    </div>
-                    <div class="window-content">
-                        <div class="terminal">
-                            <div class="terminal-line">
-                                <span class="prompt">You:</span>
-                                <span class="command">"Print my resume to PDF"</span>
-                            </div>
-                            <div class="terminal-line">
-                                <span class="prompt">AXON:</span>
-                                <span class="response">✅ Opening File Explorer...</span>
-                            </div>
-                            <div class="terminal-line">
-                                <span class="prompt">AXON:</span>
-                                <span class="response">✅ Searching for resume...</span>
-                            </div>
-                            <div class="terminal-line">
-                                <span class="prompt">AXON:</span>
-                                <span class="response">✅ Printing to PDF...</span>
-                            </div>
-                            <div class="terminal-line success">
-                                <span class="prompt">AXON:</span>
-                                <span class="response">🎉 Task completed!</span>
-                            </div>
-                        </div>
-                    </div>
+        </div>
+        <div class="hero-visual">
+            <div class="visual-container">
+                <div class="visual-circle circle-1"></div>
+                <div class="visual-circle circle-2"></div>
+                <div class="visual-circle circle-3"></div>
+                <div class="robot-illustration">
+                    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Robot Head -->
+                        <rect x="60" y="40" width="80" height="70" rx="15" fill="url(#robotGradient)"/>
+                        <!-- Eyes -->
+                        <circle cx="80" cy="70" r="8" fill="white"/>
+                        <circle cx="120" cy="70" r="8" fill="white"/>
+                        <circle cx="82" cy="72" r="4" fill="#9333EA"/>
+                        <circle cx="122" cy="72" r="4" fill="#9333EA"/>
+                        <!-- Smile -->
+                        <path d="M 80 90 Q 100 100 120 90" stroke="white" stroke-width="4" stroke-linecap="round" fill="none"/>
+                        <!-- Antenna -->
+                        <line x1="100" y1="40" x2="100" y2="20" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
+                        <circle cx="100" cy="15" r="6" fill="#F59E0B"/>
+                        <!-- Body -->
+                        <rect x="70" y="110" width="60" height="50" rx="10" fill="url(#robotGradient)"/>
+                        <!-- Arms -->
+                        <rect x="40" y="120" width="30" height="10" rx="5" fill="#9333EA"/>
+                        <rect x="130" y="120" width="30" height="10" rx="5" fill="#9333EA"/>
+                        <!-- Legs -->
+                        <rect x="75" y="160" width="15" height="30" rx="7" fill="#F59E0B"/>
+                        <rect x="110" y="160" width="15" height="30" rx="7" fill="#F59E0B"/>
+                        <defs>
+                            <linearGradient id="robotGradient" x1="0" y1="0" x2="100" y2="100">
+                                <stop offset="0%" stop-color="#9333EA"/>
+                                <stop offset="100%" stop-color="#A855F7"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
                 </div>
             </div>
         </div>
@@ -103,336 +144,230 @@
 
     <!-- Features Section -->
     <section id="features" class="features">
-        <div class="container">
-            <h2 class="section-title">Why AXON is Revolutionary</h2>
-            <p class="section-subtitle">The first vision-based desktop automation tool with transparent overlay and multi-LLM support</p>
-            
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">👁️</div>
-                    <h3>Vision-Based Control</h3>
-                    <p>AXON sees your screen like a human using Vision Language Models. If you can see it, AXON can interact with it.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">💬</div>
-                    <h3>Natural Language</h3>
-                    <p>No scripting, no programming. Just tell AXON what you want in plain English and watch it work.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Adaptive & Resilient</h3>
-                    <p>UI changed? No problem. AXON adapts because it understands context, not just coordinates.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🧠</div>
-                    <h3>Multi-LLM Support</h3>
-                    <p>Choose from Gemini, Claude, Ollama (local), NVIDIA NIM, or OpenRouter. Your data, your choice.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Safety First</h3>
-                    <p>F12 kill switch, transparent overlay, stuck detection, and full action logging keep you in control.</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
-                    <h3>Universal</h3>
-                    <p>Works with ANY application, ANY UI, ANY language. No configuration needed.</p>
-                </div>
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="title-icon">⚡</span>
+                Superpowers Included!
+            </h2>
+            <p class="section-subtitle">
+                AXON comes packed with amazing abilities to make your life easier
+            </p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🎤</div>
+                <h3 class="feature-title">Voice Control</h3>
+                <p class="feature-description">
+                    Just speak naturally! AXON understands what you want and does it for you.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👀</div>
+                <h3 class="feature-title">Computer Vision</h3>
+                <p class="feature-description">
+                    AXON can see your screen and understand what's happening, just like you do!
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3 class="feature-title">Smart AI Brain</h3>
+                <p class="feature-description">
+                    Powered by Google Gemini & Ollama - the smartest AI models around!
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3 class="feature-title">Web Automation</h3>
+                <p class="feature-description">
+                    Browse websites, fill forms, search Google - all hands-free!
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3 class="feature-title">Document Magic</h3>
+                <p class="feature-description">
+                    Create, edit, and manage documents without lifting a finger.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">Precision Control</h3>
+                <p class="feature-description">
+                    Click, type, scroll - AXON handles it all with pixel-perfect accuracy!
+                </p>
             </div>
         </div>
     </section>
 
-    <!-- How It Works -->
+    <!-- How It Works Section -->
     <section id="how-it-works" class="how-it-works">
-        <div class="container">
-            <h2 class="section-title">How AXON Works</h2>
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Tell AXON Your Goal</h3>
-                        <p>Press Alt+G and describe what you want in natural language</p>
-                    </div>
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="title-icon">🎯</span>
+                How Does It Work?
+            </h2>
+            <p class="section-subtitle">
+                Getting started with AXON is super easy! Just 3 simple steps:
+            </p>
+        </div>
+        <div class="steps-container">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3 class="step-title">Download & Install</h3>
+                    <p class="step-description">
+                        Grab the AXON.exe file and run it. No complicated setup needed!
+                    </p>
                 </div>
-                
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>AXON Sees Your Screen</h3>
-                        <p>Vision AI captures and analyzes your desktop in real-time</p>
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>AI Plans Actions</h3>
-                        <p>LLM decides the best sequence of actions to complete your task</p>
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <h3>Autonomous Execution</h3>
-                        <p>AXON moves the cursor and performs actions until task is complete</p>
-                    </div>
+                <div class="step-illustration">
+                    <div class="illustration-icon">💾</div>
                 </div>
             </div>
-        </div>
-    </section>
-
-    <!-- Comparison Table -->
-    <section class="comparison">
-        <div class="container">
-            <h2 class="section-title">AXON vs Traditional Tools</h2>
-            <div class="comparison-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Feature</th>
-                            <th>AXON</th>
-                            <th>AutoHotkey</th>
-                            <th>RPA Tools</th>
-                            <th>Voice Assistants</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Vision-Based</td>
-                            <td class="check">✅</td>
-                            <td class="cross">❌</td>
-                            <td class="partial">⚠️</td>
-                            <td class="cross">❌</td>
-                        </tr>
-                        <tr>
-                            <td>Natural Language</td>
-                            <td class="check">✅</td>
-                            <td class="cross">❌</td>
-                            <td class="partial">⚠️</td>
-                            <td class="check">✅</td>
-                        </tr>
-                        <tr>
-                            <td>Adaptive to UI Changes</td>
-                            <td class="check">✅</td>
-                            <td class="cross">❌</td>
-                            <td class="partial">⚠️</td>
-                            <td class="cross">❌</td>
-                        </tr>
-                        <tr>
-                            <td>Multi-LLM Support</td>
-                            <td class="check">✅</td>
-                            <td class="cross">❌</td>
-                            <td class="cross">❌</td>
-                            <td class="cross">❌</td>
-                        </tr>
-                        <tr>
-                            <td>Local Option</td>
-                            <td class="check">✅</td>
-                            <td>N/A</td>
-                            <td class="cross">❌</td>
-                            <td class="cross">❌</td>
-                        </tr>
-                        <tr>
-                            <td>Open Source</td>
-                            <td class="check">✅</td>
-                            <td class="check">✅</td>
-                            <td class="cross">❌</td>
-                            <td class="cross">❌</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="step-connector"></div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3 class="step-title">Tell AXON What To Do</h3>
+                    <p class="step-description">
+                        Use your voice or type your command. Be as natural as you want!
+                    </p>
+                </div>
+                <div class="step-illustration">
+                    <div class="illustration-icon">🗣️</div>
+                </div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3 class="step-title">Watch The Magic Happen!</h3>
+                    <p class="step-description">
+                        Sit back and relax while AXON does all the work for you!
+                    </p>
+                </div>
+                <div class="step-illustration">
+                    <div class="illustration-icon">✨</div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Download Section -->
     <section id="download" class="download">
-        <div class="container">
-            <h2 class="section-title">Download AXON</h2>
-            <p class="section-subtitle">Get started in minutes with our easy-to-use installer</p>
-            
-            <div class="download-options">
-                <div class="download-card primary">
-                    <div class="download-icon">💻</div>
-                    <h3>Windows Executable</h3>
-                    <p>Ready-to-run application with all dependencies included</p>
-                    <div class="download-info">
-                        <span>Version 1.0.0</span>
-                        <span>•</span>
-                        <span>~150 MB</span>
-                    </div>
-                    <a href="#" class="btn-download" onclick="alert('Executable will be available after building. See instructions below.')">
-                        ⬇️ Download AXON.exe
+        <div class="download-container">
+            <div class="download-content">
+                <h2 class="download-title">
+                    Ready to Get Started?
+                    <span class="gradient-text">Download AXON Now!</span>
+                </h2>
+                <p class="download-subtitle">
+                    100% Free • Open Source • No Sign-up Required
+                </p>
+                <div class="download-buttons">
+                    <a href="https://github.com/pratham092006/ibm-bob-hackathon/releases/latest/download/AXON.exe" class="btn btn-download">
+                        <span class="btn-icon">⬇️</span>
+                        Download AXON.exe
+                        <span class="download-size">~150 MB</span>
+                        <span class="btn-shine"></span>
                     </a>
-                    <small>Windows 10/11 • 64-bit</small>
-                </div>
-                
-                <div class="download-card">
-                    <div class="download-icon">📦</div>
-                    <h3>Source Code</h3>
-                    <p>Clone the repository and run from source</p>
-                    <div class="code-block">
-                        <code>git clone https://github.com/pratham092006/ibm-bob-hackathon.git<br>
-cd ibm-bob-hackathon<br>
-pip install -r requirements.txt<br>
-python main.py</code>
-                    </div>
-                    <a href="https://github.com/pratham092006/ibm-bob-hackathon" class="btn-outline" target="_blank">
+                    <a href="https://github.com/pratham092006/ibm-bob-hackathon" class="btn btn-github" target="_blank">
+                        <span class="btn-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                        </span>
                         View on GitHub
                     </a>
                 </div>
-            </div>
-
-            <!-- Build Instructions -->
-            <div class="build-instructions">
-                <h3>🔨 Build Your Own Executable</h3>
-                <p>Want to create the executable yourself? Follow these steps:</p>
-                
-                <div class="instruction-steps">
-                    <div class="instruction">
-                        <div class="instruction-number">1</div>
-                        <div class="instruction-content">
-                            <h4>Install PyInstaller</h4>
-                            <div class="code-block">
-                                <code>pip install pyinstaller</code>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="instruction">
-                        <div class="instruction-number">2</div>
-                        <div class="instruction-content">
-                            <h4>Navigate to Project Directory</h4>
-                            <div class="code-block">
-                                <code>cd ibm-bob-hackathon</code>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="instruction">
-                        <div class="instruction-number">3</div>
-                        <div class="instruction-content">
-                            <h4>Build the Executable</h4>
-                            <div class="code-block">
-                                <code>pyinstaller --name="AXON" --onefile --windowed --icon=pointinghand.svg main.py</code>
-                            </div>
-                            <p class="note">This creates a single executable file in the <code>dist/</code> folder</p>
-                        </div>
-                    </div>
-                    
-                    <div class="instruction">
-                        <div class="instruction-number">4</div>
-                        <div class="instruction-content">
-                            <h4>Find Your Executable</h4>
-                            <p>The executable will be located at: <code>dist/AXON.exe</code></p>
-                            <p class="note">You can now distribute this file to others!</p>
-                        </div>
-                    </div>
+                <div class="system-requirements">
+                    <h4>System Requirements:</h4>
+                    <ul>
+                        <li>✅ Windows 10/11</li>
+                        <li>✅ 4GB RAM (8GB recommended)</li>
+                        <li>✅ Internet connection for AI features</li>
+                    </ul>
                 </div>
-
-                <div class="build-options">
-                    <h4>Advanced Build Options</h4>
-                    <div class="code-block">
-                        <code># Include all dependencies and data files<br>
-pyinstaller --name="AXON" \<br>
-  --onefile \<br>
-  --windowed \<br>
-  --icon=pointinghand.svg \<br>
-  --add-data="core;core" \<br>
-  --add-data="executor;executor" \<br>
-  --add-data="ui;ui" \<br>
-  --hidden-import=PyQt6 \<br>
-  --hidden-import=google.generativeai \<br>
-  main.py</code>
+            </div>
+            <div class="download-visual">
+                <div class="download-card">
+                    <div class="card-header">
+                        <div class="card-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="card-title">AXON.exe</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="file-icon">📦</div>
+                        <div class="file-info">
+                            <div class="file-name">AXON.exe</div>
+                            <div class="file-size">~150 MB</div>
+                        </div>
+                        <div class="download-progress">
+                            <div class="progress-bar"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Documentation -->
-    <section id="docs" class="documentation">
-        <div class="container">
-            <h2 class="section-title">Documentation</h2>
-            <div class="docs-grid">
-                <a href="README.md" class="doc-card">
-                    <div class="doc-icon">📖</div>
-                    <h3>README</h3>
-                    <p>Complete project overview and features</p>
-                </a>
-                
-                <a href="HOW_TO_RUN.md" class="doc-card">
-                    <div class="doc-icon">🚀</div>
-                    <h3>Quick Start</h3>
-                    <p>Get up and running in minutes</p>
-                </a>
-                
-                <a href="ARCHITECTURE.md" class="doc-card">
-                    <div class="doc-icon">🏗️</div>
-                    <h3>Architecture</h3>
-                    <p>Technical deep dive into AXON's design</p>
-                </a>
-                
-                <a href="LLM_SETUP_GUIDE.md" class="doc-card">
-                    <div class="doc-icon">🧠</div>
-                    <h3>LLM Setup</h3>
-                    <p>Configure different AI providers</p>
-                </a>
-                
-                <a href="BOB_USAGE_EVIDENCE.md" class="doc-card">
-                    <div class="doc-icon">🤖</div>
-                    <h3>Built with Bob</h3>
-                    <p>IBM Bob AI Assistant integration</p>
-                </a>
-                
-                <a href="BROWSER_AUTOMATION_README.md" class="doc-card">
-                    <div class="doc-icon">🌐</div>
-                    <h3>Browser Automation</h3>
-                    <p>Web automation capabilities</p>
-                </a>
-            </div>
+    <!-- FAQ Section -->
+    <section id="faq" class="faq">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="title-icon">❓</span>
+                Got Questions?
+            </h2>
+            <p class="section-subtitle">
+                Here are answers to the most common questions about AXON
+            </p>
         </div>
-    </section>
-
-    <!-- Use Cases -->
-    <section class="use-cases">
-        <div class="container">
-            <h2 class="section-title">Real-World Use Cases</h2>
-            <div class="use-cases-grid">
-                <div class="use-case">
-                    <h3>📄 Document Management</h3>
-                    <p>"Find all PDFs in Downloads and move them to Documents"</p>
+        <div class="faq-container">
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Is AXON really free?</span>
+                    <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Yes! AXON is 100% free and open source. You can use it, modify it, and share it however you like!</p>
                 </div>
-                
-                <div class="use-case">
-                    <h3>🌐 Web Automation</h3>
-                    <p>"Go to GitHub, search for 'python automation', and open the first result"</p>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Do I need to be a programmer to use AXON?</span>
+                    <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Not at all! AXON is designed for everyone. Just speak naturally or type what you want, and AXON will understand!</p>
                 </div>
-                
-                <div class="use-case">
-                    <h3>💬 Communication</h3>
-                    <p>"Open WhatsApp and message John 'Meeting at 3 PM'"</p>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>Is my data safe with AXON?</span>
+                    <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Absolutely! AXON runs locally on your computer. Your data never leaves your machine unless you explicitly use cloud AI features.</p>
                 </div>
-                
-                <div class="use-case">
-                    <h3>🖨️ Printing</h3>
-                    <p>"Open File Explorer, search for my resume, and print it to PDF"</p>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>What can AXON automate?</span>
+                    <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Almost anything! Web browsing, document editing, file management, form filling, and much more. If you can do it manually, AXON can probably automate it!</p>
                 </div>
-                
-                <div class="use-case">
-                    <h3>❓ Context Help</h3>
-                    <p>Select any text, press Alt+G for instant AI explanation</p>
-                </div>
-                
-                <div class="use-case">
-                    <h3>⚙️ System Tasks</h3>
-                    <p>"Open Settings and change the wallpaper"</p>
+            </div>
+            <div class="faq-item">
+                <button class="faq-question">
+                    <span>How do I get help if I'm stuck?</span>
+                    <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                    <p>Check out our GitHub repository for documentation, or open an issue if you need help. The community is super friendly!</p>
                 </div>
             </div>
         </div>
@@ -440,39 +375,59 @@ pyinstaller --name="AXON" \<br>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>🤖 AXON</h3>
-                    <p>GitHub Copilot for Your Operating System</p>
-                    <p class="footer-badge">🏆 IBM Bob Hackathon Winner</p>
+        <div class="footer-content">
+            <div class="footer-section">
+                <div class="footer-logo">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="45" fill="url(#gradient2)"/>
+                            <path d="M35 45 L50 30 L65 45 M50 35 L50 70" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="50" cy="75" r="5" fill="white"/>
+                            <defs>
+                                <linearGradient id="gradient2" x1="0" y1="0" x2="100" y2="100">
+                                    <stop offset="0%" stop-color="#9333EA"/>
+                                    <stop offset="100%" stop-color="#F59E0B"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">AXON</span>
                 </div>
-                
-                <div class="footer-section">
-                    <h4>Project</h4>
-                    <a href="#features">Features</a>
-                    <a href="#download">Download</a>
-                    <a href="#docs">Documentation</a>
-                    <a href="https://github.com/pratham092006/ibm-bob-hackathon">GitHub</a>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Team</h4>
-                    <p>Team Merge Conflicts</p>
-                    <p>Joshua • Ashish • Pratham</p>
-                </div>
-                
-                <div class="footer-section">
-                    <h4>Built With</h4>
-                    <p>IBM Bob AI Assistant</p>
-                    <p>Python • PyQt6 • Vision AI</p>
+                <p class="footer-description">
+                    Your friendly AI desktop automation buddy, built with ❤️ for the IBM Bob Hackathon
+                </p>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">Quick Links</h4>
+                <ul class="footer-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#how-it-works">How It Works</a></li>
+                    <li><a href="#download">Download</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">Resources</h4>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/pratham092006/ibm-bob-hackathon" target="_blank">GitHub</a></li>
+                    <li><a href="https://github.com/pratham092006/ibm-bob-hackathon/blob/main/README.md" target="_blank">Documentation</a></li>
+                    <li><a href="https://github.com/pratham092006/ibm-bob-hackathon/issues" target="_blank">Report Issues</a></li>
+                    <li><a href="https://github.com/pratham092006/ibm-bob-hackathon/blob/main/LICENSE" target="_blank">License</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4 class="footer-title">Connect</h4>
+                <div class="social-links">
+                    <a href="https://github.com/pratham092006" class="social-link" target="_blank" aria-label="GitHub">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                    </a>
                 </div>
             </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2026 AXON Project. MIT License.</p>
-                <p>Made with Bob 🤖 | Team Merge Conflicts 🏆</p>
-            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 AXON. Built for IBM Bob Hackathon. Open Source & Free Forever! 🚀</p>
         </div>
     </footer>
 

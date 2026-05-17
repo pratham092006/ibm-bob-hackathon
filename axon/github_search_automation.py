@@ -31,7 +31,7 @@ async def launch_browser(playwright: Playwright) -> Browser:
     Returns:
         Browser: Launched browser instance
     """
-    print("🚀 Launching Chrome browser...")
+    print("[*] Launching Chrome browser...")
     browser = await playwright.chromium.launch(
         headless=False,  # Visible browser
         slow_mo=500      # Slow down actions for visibility
@@ -46,10 +46,10 @@ async def navigate_to_github(page: Page) -> None:
     Args:
         page: Playwright page instance
     """
-    print("🌐 Navigating to GitHub...")
+    print("[*] Navigating to GitHub...")
     await page.goto("https://github.com", wait_until="domcontentloaded")
     await page.wait_for_load_state("networkidle")
-    print("✅ GitHub homepage loaded")
+    print("[OK] GitHub homepage loaded")
 
 
 async def search_for_react(page: Page) -> None:
@@ -59,25 +59,36 @@ async def search_for_react(page: Page) -> None:
     Args:
         page: Playwright page instance
     """
-    print("🔍 Searching for 'React'...")
+    print("[*] Searching for 'React'...")
     
-    # Wait for and click the search button/input trigger
-    # GitHub uses a button that opens the search dialog
-    search_trigger = page.locator('button[data-target="qbsearch-input.inputButtonText"]')
-    await search_trigger.wait_for(state="visible", timeout=10000)
-    await search_trigger.click()
-    
-    # Wait for the search input to appear and type
-    search_input = page.locator('#query-builder-test')
-    await search_input.wait_for(state="visible", timeout=5000)
-    await search_input.fill("React")
-    
-    # Press Enter to submit search
-    await search_input.press("Enter")
+    # Try multiple approaches to find and use the search
+    try:
+        # Approach 1: Try the search button/trigger
+        search_trigger = page.locator('button[data-target="qbsearch-input.inputButtonText"]')
+        await search_trigger.wait_for(state="visible", timeout=5000)
+        await search_trigger.click()
+        
+        # Wait for the search input to appear
+        search_input = page.locator('#query-builder-test')
+        await search_input.wait_for(state="visible", timeout=5000)
+        await search_input.fill("React")
+        await search_input.press("Enter")
+        
+    except Exception as e:
+        print(f"[*] First approach failed, trying alternative method: {str(e)[:50]}...")
+        
+        # Approach 2: Try direct search input (fallback)
+        # Press "/" to open search (GitHub keyboard shortcut)
+        await page.keyboard.press("/")
+        await page.wait_for_timeout(1000)
+        
+        # Type in the search query
+        await page.keyboard.type("React")
+        await page.keyboard.press("Enter")
     
     # Wait for search results page to load
     await page.wait_for_load_state("networkidle")
-    print("✅ Search results loaded")
+    print("[OK] Search results loaded")
 
 
 async def sort_by_most_stars(page: Page) -> None:
@@ -87,21 +98,34 @@ async def sort_by_most_stars(page: Page) -> None:
     Args:
         page: Playwright page instance
     """
-    print("⭐ Sorting by most stars...")
+    print("[*] Sorting by most stars...")
     
-    # Wait for the sort menu button to be visible
-    sort_button = page.locator('button:has-text("Sort")')
-    await sort_button.wait_for(state="visible", timeout=10000)
-    await sort_button.click()
-    
-    # Wait for dropdown menu to appear and click "Most stars"
-    most_stars_option = page.locator('a[href*="sort=stars"]').first
-    await most_stars_option.wait_for(state="visible", timeout=5000)
-    await most_stars_option.click()
+    try:
+        # Approach 1: Try the sort button and dropdown
+        sort_button = page.locator('button:has-text("Sort")')
+        await sort_button.wait_for(state="visible", timeout=10000)
+        await sort_button.click()
+        
+        # Wait for dropdown menu to appear and click "Most stars"
+        most_stars_option = page.locator('a[href*="sort=stars"]').first
+        await most_stars_option.wait_for(state="visible", timeout=5000)
+        await most_stars_option.click()
+        
+    except Exception as e:
+        print(f"[*] Sort button approach failed, trying URL navigation: {str(e)[:50]}...")
+        
+        # Approach 2: Navigate directly to sorted URL
+        current_url = page.url
+        if '?' in current_url:
+            sorted_url = current_url + '&s=stars&o=desc'
+        else:
+            sorted_url = current_url + '?s=stars&o=desc'
+        
+        await page.goto(sorted_url)
     
     # Wait for sorted results to load
     await page.wait_for_load_state("networkidle")
-    print("✅ Results sorted by most stars")
+    print("[OK] Results sorted by most stars")
 
 
 async def keep_browser_open(duration: int = 5) -> None:
@@ -111,7 +135,7 @@ async def keep_browser_open(duration: int = 5) -> None:
     Args:
         duration: Time in seconds to keep browser open
     """
-    print(f"⏳ Keeping browser open for {duration} seconds...")
+    print(f"[*] Keeping browser open for {duration} seconds...")
     time.sleep(duration)
 
 
@@ -138,17 +162,17 @@ async def run_automation() -> None:
             # Step 5: Keep browser open
             await keep_browser_open(5)
             
-            print("\n🎉 Automation completed successfully!")
+            print("\n[SUCCESS] Automation completed successfully!")
             
         except Exception as e:
-            print(f"\n❌ Error during automation: {str(e)}")
+            print(f"\n[ERROR] Error during automation: {str(e)}")
             print(f"Error type: {type(e).__name__}")
             raise
             
         finally:
             # Clean up: Close browser
             if browser:
-                print("🔒 Closing browser...")
+                print("[*] Closing browser...")
                 await browser.close()
 
 
@@ -164,9 +188,9 @@ def main():
     try:
         asyncio.run(run_automation())
     except KeyboardInterrupt:
-        print("\n⚠️  Automation interrupted by user")
+        print("\n[WARNING] Automation interrupted by user")
     except Exception as e:
-        print(f"\n❌ Fatal error: {str(e)}")
+        print(f"\n[ERROR] Fatal error: {str(e)}")
         raise
 
 

@@ -3,6 +3,7 @@
 Dev 2 (Ashish) - Executor & Safety
 Implements all action execution functions for the AXON system.
 Receives action dictionaries from Computer Use API and executes them using pyautogui.
+Includes browser automation via Playwright.
 """
 
 import pyautogui
@@ -18,6 +19,26 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import kill_event, status_queue
+
+# Import browser automation functions
+try:
+    from executor.browser_actions import (
+        browser_navigate,
+        browser_click,
+        browser_type,
+        browser_press_key,
+        browser_wait,
+        browser_get_text,
+        browser_screenshot,
+        browser_close
+    )
+    BROWSER_ACTIONS_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("Browser automation module loaded successfully")
+except ImportError as e:
+    BROWSER_ACTIONS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Browser automation not available: {e}")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -417,6 +438,69 @@ def execute_action(action_dict):
                 success = False
             else:
                 success = scroll(coordinate[0], coordinate[1], direction, amount)
+        
+        # Browser automation actions
+        elif action_type == "browser_navigate" and BROWSER_ACTIONS_AVAILABLE:
+            url = action_dict.get('url', '')
+            if not url:
+                logger.error("No URL specified for browser_navigate")
+                success = False
+            else:
+                success = browser_navigate(url)
+        
+        elif action_type == "browser_click" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector:
+                logger.error("No selector specified for browser_click")
+                success = False
+            else:
+                success = browser_click(selector, timeout)
+        
+        elif action_type == "browser_type" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            text = action_dict.get('text', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector or not text:
+                logger.error("Missing selector or text for browser_type")
+                success = False
+            else:
+                success = browser_type(selector, text, timeout)
+        
+        elif action_type == "browser_press_key" and BROWSER_ACTIONS_AVAILABLE:
+            key = action_dict.get('key', '')
+            if not key:
+                logger.error("No key specified for browser_press_key")
+                success = False
+            else:
+                success = browser_press_key(key)
+        
+        elif action_type == "browser_wait" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            timeout = action_dict.get('timeout', 10000)
+            if not selector:
+                logger.error("No selector specified for browser_wait")
+                success = False
+            else:
+                success = browser_wait(selector, timeout)
+        
+        elif action_type == "browser_get_text" and BROWSER_ACTIONS_AVAILABLE:
+            selector = action_dict.get('selector', '')
+            if not selector:
+                logger.error("No selector specified for browser_get_text")
+                success = False
+            else:
+                text = browser_get_text(selector)
+                success = text is not None
+                if success:
+                    logger.info(f"Extracted text: {text[:100]}...")
+        
+        elif action_type == "browser_screenshot" and BROWSER_ACTIONS_AVAILABLE:
+            path = action_dict.get('path', 'axon/bob-reports/browser_screenshot.png')
+            success = browser_screenshot(path)
+        
+        elif action_type == "browser_close" and BROWSER_ACTIONS_AVAILABLE:
+            success = browser_close()
         
         elif action_type == "done":
             logger.info("Task complete - setting kill_event")
